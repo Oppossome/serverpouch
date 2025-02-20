@@ -17,26 +17,30 @@ import (
 	"github.com/docker/docker/client"
 )
 
-var _ server.ServerHandler = (*dockerServerHandler)(nil)
+var _ server.ServerInstance = (*dockerServerInstance)(nil)
 
-type dockerServerHandler struct {
-	action  events.EventEmitter[server.HandlerAction]
-	events  *server.HandlerEvents
-	options *DockerOptions
-	status  server.HandlerStatus
+type dockerServerInstance struct {
+	action  events.EventEmitter[server.ServerInstanceAction]
+	events  *server.ServerInstanceEvents
+	options *DockerServerInstanceOptions
+	status  server.ServerInstanceStatus
 }
 
-func (d *dockerServerHandler) Action(action server.HandlerAction) {
+func (d *dockerServerInstance) Action(action server.ServerInstanceAction) {
 	fmt.Printf("Running Action %s\n", action)
 	d.action.Dispatch(action)
 }
 
-func (d *dockerServerHandler) Status() server.HandlerStatus {
+func (d *dockerServerInstance) Status() server.ServerInstanceStatus {
 	return d.status
 }
 
-func (d *dockerServerHandler) Events() *server.HandlerEvents {
+func (d *dockerServerInstance) Events() *server.ServerInstanceEvents {
 	return d.events
+}
+
+func (d *dockerServerInstance) Type() server.ServerInstanceType {
+	return server.ServerInstanceTypeDocker
 }
 
 type dockerEvent struct {
@@ -49,30 +53,30 @@ type dockerEvent struct {
 	} `json:"progressDetail"`
 }
 
-func New(ctx context.Context, options *DockerOptions) (*dockerServerHandler, error) {
-	serverHandler := dockerServerHandler{
-		action:  events.New[server.HandlerAction](),
-		events:  server.NewHandlerEvents(),
+func New(ctx context.Context, options *DockerServerInstanceOptions) (*dockerServerInstance, error) {
+	serverProcess := dockerServerInstance{
+		action:  events.New[server.ServerInstanceAction](),
+		events:  server.NewServerInstanceEvents(),
 		options: options,
-		status:  server.HandlerStatusInitializing,
+		status:  server.ServerInstanceStatusInitializing,
 	}
 
-	go serverHandler.init(ctx)
+	go serverProcess.init(ctx)
 
-	return &serverHandler, nil
+	return &serverProcess, nil
 }
 
-func (d *dockerServerHandler) setStatus(status server.HandlerStatus) {
+func (d *dockerServerInstance) setStatus(status server.ServerInstanceStatus) {
 	d.status = status
 	d.events.Status.Dispatch(status)
 }
 
 // MARK: init
 
-func (d *dockerServerHandler) init(ctx context.Context) {
+func (d *dockerServerInstance) init(ctx context.Context) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		d.setStatus(server.HandlerStatusErrored)
+		d.setStatus(server.ServerInstanceStatusErrored)
 		d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unable to contact Docker: %s", err.Error()))
 		return
 	}
@@ -80,7 +84,7 @@ func (d *dockerServerHandler) init(ctx context.Context) {
 	// MARK: - Image
 	images, err := client.ImageList(ctx, image.ListOptions{All: true})
 	if err != nil {
-		d.setStatus(server.HandlerStatusErrored)
+		d.setStatus(server.ServerInstanceStatusErrored)
 		d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unable to list images: %s", err.Error()))
 		return
 	}
@@ -98,7 +102,7 @@ func (d *dockerServerHandler) init(ctx context.Context) {
 		d.events.TerminalOut.Dispatch(fmt.Sprintf("Pulling Image %s", d.options.Image))
 		reader, err := client.ImagePull(ctx, d.options.Image, image.PullOptions{})
 		if err != nil {
-			d.setStatus(server.HandlerStatusErrored)
+			d.setStatus(server.ServerInstanceStatusErrored)
 			d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Image pull failed: %s", err.Error()))
 			return
 		}
@@ -111,13 +115,13 @@ func (d *dockerServerHandler) init(ctx context.Context) {
 					break
 				}
 
-				d.setStatus(server.HandlerStatusErrored)
+				d.setStatus(server.ServerInstanceStatusErrored)
 				d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Failed to decode pull progress: %s", err.Error()))
 				return
 			}
 
 			if pullEvent.Error != "" {
-				d.setStatus(server.HandlerStatusErrored)
+				d.setStatus(server.ServerInstanceStatusErrored)
 				d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Pull failed: %s", pullEvent.Error))
 				return
 			}
@@ -156,7 +160,7 @@ func (d *dockerServerHandler) init(ctx context.Context) {
 		opts, hostOpts := d.options.toOptions()
 		container, err := client.ContainerCreate(ctx, opts, hostOpts, nil, nil, d.options.ID.String())
 		if err != nil {
-			d.setStatus(server.HandlerStatusErrored)
+			d.setStatus(server.ServerInstanceStatusErrored)
 			d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unable to create container: %s", err.Error()))
 			return
 		}
@@ -169,7 +173,7 @@ func (d *dockerServerHandler) init(ctx context.Context) {
 
 // MARK: command
 
-func (d *dockerServerHandler) commandInit(ctx context.Context, client *client.Client, containerID string) {
+func (d *dockerServerInstance) commandInit(ctx context.Context, client *client.Client, containerID string) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -179,7 +183,7 @@ func (d *dockerServerHandler) commandInit(ctx context.Context, client *client.Cl
 
 		inspect, err := client.ContainerInspect(ctx, containerID)
 		if err != nil {
-			d.setStatus(server.HandlerStatusErrored)
+			d.setStatus(server.ServerInstanceStatusErrored)
 			d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Failed to inspect container: %s", err.Error()))
 			return
 		}
@@ -194,7 +198,7 @@ func (d *dockerServerHandler) commandInit(ctx context.Context, client *client.Cl
 		case inspect.State.Status == "restarting":
 			time.Sleep(time.Millisecond * 500)
 		default:
-			d.setStatus(server.HandlerStatusErrored)
+			d.setStatus(server.ServerInstanceStatusErrored)
 			d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unknown State: %s", inspect.State.Status))
 			return
 		}
@@ -203,8 +207,8 @@ func (d *dockerServerHandler) commandInit(ctx context.Context, client *client.Cl
 
 // MARK: commandIdle
 
-func (d *dockerServerHandler) commandIdle(ctx context.Context, client *client.Client, containerId string) {
-	d.setStatus(server.HandlerStatusIdle)
+func (d *dockerServerInstance) commandIdle(ctx context.Context, client *client.Client, containerId string) {
+	d.setStatus(server.ServerInstanceStatusIdle)
 
 	actionChan := d.action.On()
 	defer d.action.Off(actionChan)
@@ -215,10 +219,10 @@ func (d *dockerServerHandler) commandIdle(ctx context.Context, client *client.Cl
 			return
 		case action := <-actionChan:
 			switch {
-			case action == server.HandlerActionStart:
+			case action == server.ServerInstanceActionStart:
 				err := client.ContainerStart(ctx, containerId, container.StartOptions{})
 				if err != nil {
-					d.setStatus(server.HandlerStatusErrored)
+					d.setStatus(server.ServerInstanceStatusErrored)
 					d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unable to start server: %s", err.Error()))
 				}
 
@@ -232,8 +236,8 @@ func (d *dockerServerHandler) commandIdle(ctx context.Context, client *client.Cl
 
 // MARK: commandRunning
 
-func (d *dockerServerHandler) commandRunning(ctx context.Context, client *client.Client, containerId string) {
-	d.setStatus(server.HandlerStatusRunning)
+func (d *dockerServerInstance) commandRunning(ctx context.Context, client *client.Client, containerId string) {
+	d.setStatus(server.ServerInstanceStatusRunning)
 
 	actionChan := d.action.On()
 	defer d.action.Off(actionChan)
@@ -245,7 +249,7 @@ func (d *dockerServerHandler) commandRunning(ctx context.Context, client *client
 		Stderr: true,
 	})
 	if err != nil {
-		d.setStatus(server.HandlerStatusErrored)
+		d.setStatus(server.ServerInstanceStatusErrored)
 		d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unable to inspect container: %s", err.Error()))
 		return
 	}
@@ -264,18 +268,18 @@ func (d *dockerServerHandler) commandRunning(ctx context.Context, client *client
 			return
 		case action := <-actionChan:
 			switch {
-			case action == server.HandlerActionKill:
+			case action == server.ServerInstanceActionKill:
 				err := client.ContainerStop(ctx, containerId, container.StopOptions{Signal: "SIGKILL"})
 				if err != nil {
-					d.setStatus(server.HandlerStatusErrored)
+					d.setStatus(server.ServerInstanceStatusErrored)
 					d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unable to stop server: %s", err.Error()))
 				}
 
 				return
-			case action == server.HandlerActionStop:
+			case action == server.ServerInstanceActionStop:
 				err := client.ContainerStop(ctx, containerId, container.StopOptions{})
 				if err != nil {
-					d.setStatus(server.HandlerStatusErrored)
+					d.setStatus(server.ServerInstanceStatusErrored)
 					d.events.TerminalOut.Dispatch(fmt.Sprintf("[Serverpouch] Unable to stop server: %s", err.Error()))
 				}
 

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,10 +18,10 @@ func main() {
 	testCtx, testCtxClose := context.WithCancel(context.Background())
 	defer testCtxClose()
 
-	handler, err := docker.New(testCtx, &docker.DockerOptions{
+	serverInstance, err := docker.New(testCtx, &docker.DockerServerInstanceOptions{
 		ID:      uuid.Nil,
 		Image:   "crccheck/hello-world",
-		Volumes: map[fs.DirEntry]string{},
+		Volumes: map[string]string{},
 		Ports:   map[int]string{80: "8000/tcp"},
 		Env:     []string{},
 	})
@@ -33,8 +32,8 @@ func main() {
 
 	// Log the output
 	go func() {
-		statusChan := handler.Events().Status.On()
-		terminalOut := handler.Events().TerminalOut.On()
+		statusChan := serverInstance.Events().Status.On()
+		terminalOut := serverInstance.Events().TerminalOut.On()
 
 		for {
 			select {
@@ -50,7 +49,7 @@ func main() {
 	go func() {
 		time.Sleep(time.Second * 8)
 
-		handler.Action(server.HandlerActionStart)
+		serverInstance.Action(server.ServerInstanceActionStart)
 	}()
 
 	// Allow ^C to close the program

@@ -2,24 +2,31 @@ package docker
 
 import (
 	"fmt"
-	"io/fs"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 )
 
-type DockerOptions struct {
+type DockerServerInstanceOptions struct {
 	ID      uuid.UUID
 	Image   string
-	Volumes map[fs.DirEntry]string
+	Volumes map[string]string
 	Ports   map[int]string
 	Env     []string
 }
 
-func (o *DockerOptions) toOptions() (*container.Config, *container.HostConfig) {
-	config := container.Config{Image: o.Image, ExposedPorts: nat.PortSet{}}
-	hostConfig := container.HostConfig{PortBindings: nat.PortMap{}}
+func (o *DockerServerInstanceOptions) toOptions() (*container.Config, *container.HostConfig) {
+	config := container.Config{
+		Image:        o.Image,
+		ExposedPorts: nat.PortSet{},
+		Volumes:      map[string]struct{}{},
+	}
+
+	hostConfig := container.HostConfig{
+		PortBindings: nat.PortMap{},
+		Binds:        []string{},
+	}
 
 	for hostPort, containerPort := range o.Ports {
 		natPort := nat.Port(containerPort)
@@ -30,6 +37,11 @@ func (o *DockerOptions) toOptions() (*container.Config, *container.HostConfig) {
 				HostPort: fmt.Sprint(hostPort),
 			},
 		}
+	}
+
+	for hostVolume, containerVolume := range o.Volumes {
+		hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s", hostVolume, containerVolume))
+		config.Volumes[containerVolume] = struct{}{}
 	}
 
 	return &config, &hostConfig
