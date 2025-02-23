@@ -38,8 +38,8 @@ func TestEvents(t *testing.T) {
 		assert.Equal(t, 2, *channelGet(t, chan1))
 		assert.Nil(t, channelGet(t, chan2))
 
-		// Destroy closes all dependent channels.
-		testEvent.Destroy()
+		// Closes all dependent channels.
+		testEvent.Close()
 		go testEvent.Dispatch(3)
 		assert.Nil(t, channelGet(t, chan1))
 		assert.Nil(t, channelGet(t, chan2))

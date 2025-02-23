@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"oppossome/serverpouch/internal/domain/server"
 	"oppossome/serverpouch/internal/infrastructure/docker"
@@ -18,17 +17,18 @@ func main() {
 	testCtx, testCtxClose := context.WithCancel(context.Background())
 	defer testCtxClose()
 
-	serverInstance, err := docker.New(testCtx, &docker.DockerServerInstanceOptions{
+	testCtx, err := docker.WithClient(testCtx, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to start handler: %s\n", err.Error()))
+	}
+
+	serverInstance := docker.NewDockerServerInstance(testCtx, &docker.DockerServerInstanceOptions{
 		ID:      uuid.Nil,
 		Image:   "crccheck/hello-world",
 		Volumes: map[string]string{},
 		Ports:   map[int]string{80: "8000/tcp"},
 		Env:     []string{},
 	})
-	if err != nil {
-		panicMsg := fmt.Sprintf("Unable to start handler: %s", err.Error())
-		panic(panicMsg)
-	}
 
 	// Log the output
 	go func() {
@@ -37,9 +37,15 @@ func main() {
 
 		for {
 			select {
-			case status := <-statusChan:
+			case status, ok := <-statusChan:
+				if !ok {
+					return
+				}
 				fmt.Printf("Status: %s\n", status)
-			case terminalOut := <-terminalOut:
+			case terminalOut, ok := <-terminalOut:
+				if !ok {
+					return
+				}
 				fmt.Printf("TerminalOut: %s\n", terminalOut)
 			}
 		}
@@ -47,13 +53,16 @@ func main() {
 
 	// Perform our interactions
 	go func() {
-		time.Sleep(time.Second * 8)
-
 		serverInstance.Action(server.ServerInstanceActionStart)
+		serverInstance.Events().TerminalIn.Dispatch("Test!")
+
+		serverInstance.Action(server.ServerInstanceActionStop)
 	}()
 
 	// Allow ^C to close the program
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
+
+	serverInstance.Close()
 }

@@ -8,7 +8,7 @@ type EventEmitter[O any] interface {
 	On() <-chan O
 	Off(<-chan O)
 	Dispatch(O)
-	Destroy()
+	Close()
 }
 
 type eventEmitterImpl[O any] struct {
@@ -60,7 +60,7 @@ func (e *eventEmitterImpl[O]) Dispatch(value O) {
 	wg.Wait()
 }
 
-func (e *eventEmitterImpl[O]) Destroy() {
+func (e *eventEmitterImpl[O]) Close() {
 	e.Lock()
 	defer e.Unlock()
 

@@ -48,4 +48,5 @@ type ServerInstance interface {
 	Action(action ServerInstanceAction)
 	Status() ServerInstanceStatus
 	Events() *ServerInstanceEvents
+	Close()
 }
