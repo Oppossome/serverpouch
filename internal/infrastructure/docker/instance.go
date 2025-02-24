@@ -32,8 +32,8 @@ type dockerServerInstanceAction struct {
 	done   chan struct{}
 }
 
-func (d *dockerServerInstance) Type() server.ServerInstanceType {
-	return server.ServerInstanceTypeDocker
+func (d *dockerServerInstance) Config() server.ServerInstanceConfig {
+	return d.options
 }
 
 func (d *dockerServerInstance) Action(action server.ServerInstanceAction) {

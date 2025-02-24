@@ -7,6 +7,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"time"
 
 	"oppossome/serverpouch/internal/domain/server"
 
@@ -32,6 +33,12 @@ func (dsi *dockerServerInstance) lifecycle() {
 	for {
 		select {
 		case <-dsi.ctx.Done():
+			// If we're in the middle of an action, see it through.
+			if activeActionDone != nil {
+				<-activeActionDone
+				activeAction.done <- struct{}{}
+			}
+
 			return
 
 		// Handle lifecycleAction completion
@@ -48,6 +55,10 @@ func (dsi *dockerServerInstance) lifecycle() {
 			activeActionDone = make(chan struct{})
 
 			go dsi.lifecycleAction(action.action, activeActionDone)
+
+		// Passively update the lifecycle status
+		case <-time.After(time.Second * 30):
+			go dsi.lifecycleActionUpdateStatus()
 		}
 	}
 }
@@ -57,7 +68,7 @@ func (dsi *dockerServerInstance) lifecycle() {
 // lifecycleAction is used to perform the associated lifecycleActions
 func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAction, activeActionDone chan<- struct{}) {
 	defer func() {
-		dsi.updateContainerStatus()
+		dsi.lifecycleActionUpdateStatus()
 		activeActionDone <- struct{}{}
 	}()
 
@@ -73,7 +84,7 @@ func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAct
 			return
 		}
 
-		containerID, err := dsi.getContainer()
+		containerID, err := dsi.lifecycleInit()
 		if err != nil {
 			dsi.setStatus(server.ServerInstanceStatusErrored)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to get container: %s", err))
@@ -121,7 +132,40 @@ func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAct
 	}
 }
 
-// MARK: getContainer
+// MARK: lifecycleActionUpdateStatus
+
+// lifecycleActionUpdateStatus is responsible for determining the
+// status of the container.
+func (dsi *dockerServerInstance) lifecycleActionUpdateStatus() {
+	dsi.mu.RLock()
+	containerID := dsi.containerID
+	dsi.mu.RUnlock()
+
+	if containerID == "" {
+		dsi.setStatus(server.ServerInstanceStatusInitializing)
+		return
+	}
+
+	inspect, err := dsi.client.ContainerInspect(dsi.ctx, dsi.containerID)
+	if err != nil {
+		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to inspect container: %s", err))
+		return
+	}
+
+	switch {
+	case inspect.State.Status == "created":
+		fallthrough
+	case inspect.State.Status == "exited":
+		dsi.setStatus(server.ServerInstanceStatusIdle)
+	case inspect.State.Status == "running":
+		dsi.setStatus(server.ServerInstanceStatusRunning)
+	default:
+		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unknown docker status: %s", inspect.State.Status))
+		dsi.setStatus(server.ServerInstanceStatusErrored)
+	}
+}
+
+// MARK: lifecycleInit
 
 type dockerEvent struct {
 	Status         string `json:"status"`
@@ -133,7 +177,7 @@ type dockerEvent struct {
 	} `json:"progressDetail"`
 }
 
-func (dsi *dockerServerInstance) getContainer() (string, error) {
+func (dsi *dockerServerInstance) lifecycleInit() (string, error) {
 	containers, err := dsi.client.ContainerList(dsi.ctx, container.ListOptions{All: true})
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to list containers")
@@ -141,7 +185,7 @@ func (dsi *dockerServerInstance) getContainer() (string, error) {
 
 	// Check if we have the container already.
 	for _, container := range containers {
-		if slices.Contains(container.Names, "/"+dsi.options.ID.String()) {
+		if slices.Contains(container.Names, "/"+dsi.options.InstanceID.String()) {
 			if container.Image != dsi.options.Image {
 				return "", errors.Wrapf(err, "Found non-matching container image: %s", container.Image)
 			}
@@ -173,6 +217,7 @@ func (dsi *dockerServerInstance) getContainer() (string, error) {
 			return "", errors.Wrapf(err, "Failed to pull image \"%s\"", dsi.options.Image)
 		}
 
+		defer reader.Close()
 		decoder := json.NewDecoder(reader)
 		for {
 			var pullEvent dockerEvent
@@ -196,40 +241,12 @@ func (dsi *dockerServerInstance) getContainer() (string, error) {
 
 	// Create the container.
 	opts, hostOpts := dsi.options.toOptions()
-	container, err := dsi.client.ContainerCreate(dsi.ctx, opts, hostOpts, nil, nil, dsi.options.ID.String())
+	container, err := dsi.client.ContainerCreate(dsi.ctx, opts, hostOpts, nil, nil, dsi.options.InstanceID.String())
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to create container")
 	}
 
 	return container.ID, nil
-}
-
-// MARK: updateContainerStatus
-
-func (dsi *dockerServerInstance) updateContainerStatus() {
-	dsi.mu.RLock()
-	containerID := dsi.containerID
-	dsi.mu.RUnlock()
-
-	if containerID == "" {
-		dsi.setStatus(server.ServerInstanceStatusInitializing)
-		return
-	}
-
-	inspect, err := dsi.client.ContainerInspect(dsi.ctx, dsi.containerID)
-	if err != nil {
-		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to inspect container: %s", err))
-		return
-	}
-
-	switch {
-	case inspect.State.Status == "created":
-		fallthrough
-	case inspect.State.Status == "exited":
-		dsi.setStatus(server.ServerInstanceStatusIdle)
-	case inspect.State.Status == "running":
-		dsi.setStatus(server.ServerInstanceStatusRunning)
-	}
 }
 
 // MARK: lifecycleInitAttach

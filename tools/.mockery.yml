@@ -1,0 +1,6 @@
+with-expecter: true
+dir: "../mocks/{{.PackagePath}}"
+packages:
+  github.com/docker/docker/client:
+    interfaces:
+      APIClient:

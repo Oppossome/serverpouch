@@ -8,17 +8,8 @@ import (
 
 var dockerClientKey = &struct{ name string }{"dockerClient"}
 
-func WithClient(ctx context.Context, cl client.APIClient) (context.Context, error) {
-	if cl == nil {
-		client, err := client.NewClientWithOpts(client.FromEnv)
-		if err != nil {
-			return nil, err
-		}
-
-		cl = client
-	}
-
-	return context.WithValue(ctx, dockerClientKey, cl), nil
+func WithClient(ctx context.Context, cl client.APIClient) context.Context {
+	return context.WithValue(ctx, dockerClientKey, cl)
 }
 
 func ClientFromContext(ctx context.Context) client.APIClient {

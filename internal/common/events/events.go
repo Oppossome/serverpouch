@@ -12,16 +12,15 @@ type EventEmitter[O any] interface {
 }
 
 type eventEmitterImpl[O any] struct {
-	sync.RWMutex
-
+	mu sync.RWMutex
 	listeners []chan O
 }
 
 var _ EventEmitter[any] = (*eventEmitterImpl[any])(nil)
 
 func (e *eventEmitterImpl[O]) On() <-chan O {
-	e.Lock()
-	defer e.Unlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
 	listener := make(chan O)
 	e.listeners = append(e.listeners, listener)
@@ -30,8 +29,8 @@ func (e *eventEmitterImpl[O]) On() <-chan O {
 }
 
 func (e *eventEmitterImpl[O]) Off(listener <-chan O) {
-	e.Lock()
-	defer e.Unlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
 	for i, channel := range e.listeners {
 		if channel != listener {
@@ -45,8 +44,8 @@ func (e *eventEmitterImpl[O]) Off(listener <-chan O) {
 }
 
 func (e *eventEmitterImpl[O]) Dispatch(value O) {
-	e.RLock()
-	defer e.RUnlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 
 	var wg sync.WaitGroup
 	wg.Add(len(e.listeners))
@@ -61,8 +60,8 @@ func (e *eventEmitterImpl[O]) Dispatch(value O) {
 }
 
 func (e *eventEmitterImpl[O]) Close() {
-	e.Lock()
-	defer e.Unlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
 	for _, channel := range e.listeners {
 		close(channel)

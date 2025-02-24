@@ -2,6 +2,8 @@ package server
 
 import (
 	"oppossome/serverpouch/internal/common/events"
+
+	"github.com/google/uuid"
 )
 
 type ServerInstanceStatus string
@@ -44,9 +46,16 @@ func NewServerInstanceEvents() *ServerInstanceEvents {
 }
 
 type ServerInstance interface {
-	Type() ServerInstanceType
+	Config() ServerInstanceConfig
 	Action(action ServerInstanceAction)
 	Status() ServerInstanceStatus
 	Events() *ServerInstanceEvents
 	Close()
+}
+
+type ServerInstanceConfig interface {
+	ID() uuid.UUID
+	Type() ServerInstanceType
+	Ports() []int
+	ToJSON() (string, error)
 }
