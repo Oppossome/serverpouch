@@ -13,7 +13,7 @@ type ServerInstanceCollection interface {
 }
 
 type serverInstanceCollectionImpl struct {
-	mu sync.RWMutex
+	mu        sync.RWMutex
 	instances map[uuid.UUID]ServerInstance
 }
 
@@ -37,4 +37,3 @@ func (sic *serverInstanceCollectionImpl) Get(ID uuid.UUID) (ServerInstance, erro
 
 	return instance, nil
 }
-

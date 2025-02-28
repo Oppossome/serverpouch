@@ -1,0 +1,15 @@
+version: "2"
+sql:
+  - engine: postgresql
+    queries: "../internal/infrastructure/database/schema/queries"
+    schema: "../internal/infrastructure/database/schema/migrations"
+    gen:
+      go: 
+        package: "schema"
+        sql_package: "pgx/v5"
+        out: "../internal/infrastructure/database/schema"
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"

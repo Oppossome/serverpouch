@@ -1,0 +1,4 @@
+development:
+  dialect: "postgresql"
+  datasource: ../development.db
+  dir: "../internal/infrastructure/database/sql/migrations"

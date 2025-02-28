@@ -12,7 +12,7 @@ type EventEmitter[O any] interface {
 }
 
 type eventEmitterImpl[O any] struct {
-	mu sync.RWMutex
+	mu        sync.RWMutex
 	listeners []chan O
 }
 
