@@ -7,4 +7,5 @@ test:
 generate:
 	go generate ./tools/tools.go
 
-	
+fmt:
+	gofumpt -l -w .
