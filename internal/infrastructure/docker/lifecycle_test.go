@@ -45,13 +45,13 @@ func testDockerServerInstance(t *testing.T, options *DockerServerInstanceOptions
 
 func assertTerminalOut(t *testing.T, dsi *dockerServerInstance, done chan<- struct{}, expected []string) {
 	ready := make(chan struct{})
-	go func ()  {
+	go func() {
 		defer func() { done <- struct{}{} }()
-	
+
 		termOut := dsi.events.TerminalOut.On()
 		defer dsi.events.TerminalOut.Off(termOut)
 		ready <- struct{}{}
-	
+
 		for _, expected := range expected {
 			select {
 			case <-time.After(5 * time.Second):
