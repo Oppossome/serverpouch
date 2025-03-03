@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -17,7 +18,9 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/google/uuid"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // MARK: Helpers
@@ -25,6 +28,9 @@ import (
 func testDockerServerInstance(t *testing.T, options *DockerServerInstanceOptions) (*client.MockAPIClient, *dockerServerInstance) {
 	testCtx, testCtxCancel := context.WithCancel(t.Context())
 	mockAPIClient := &client.MockAPIClient{}
+
+	testCtx = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().WithContext(testCtx)
+	zerolog.Ctx(testCtx).Debug().Interface("config", &options).Msg("testDockerServerInstance initialized")
 
 	return mockAPIClient, &dockerServerInstance{
 		ctx:           testCtx,
@@ -79,14 +85,14 @@ func TestLifecycle(t *testing.T) {
 
 		// First we will start the container
 		mockClient.EXPECT().ContainerStart(
-			dsi.ctx,
+			mock.Anything,
 			dsi.containerID,
 			container.StartOptions{},
 		).Return(nil)
 
 		// Second behave as if the container has started
 		mockClient.EXPECT().ContainerInspect(
-			dsi.ctx,
+			mock.Anything,
 			dsi.containerID,
 		).Return(
 			types.ContainerJSON{
@@ -102,14 +108,14 @@ func TestLifecycle(t *testing.T) {
 
 		// Third we will shutdown the container
 		mockClient.EXPECT().ContainerStop(
-			dsi.ctx,
+			mock.Anything,
 			dsi.containerID,
 			container.StopOptions{},
 		).Return(nil)
 
 		// Fourth behave as if we shutdown the container
 		mockClient.EXPECT().ContainerInspect(
-			dsi.ctx,
+			mock.Anything,
 			dsi.containerID,
 		).Return(
 			types.ContainerJSON{
@@ -149,7 +155,7 @@ func TestLifecycle(t *testing.T) {
 
 		// The action we will shutdown during
 		mockClient.EXPECT().ContainerStart(
-			dsi.ctx,
+			mock.Anything,
 			dsi.containerID,
 			container.StartOptions{},
 		).Return(nil).WaitUntil(
@@ -157,7 +163,7 @@ func TestLifecycle(t *testing.T) {
 		)
 
 		mockClient.EXPECT().ContainerInspect(
-			dsi.ctx,
+			mock.Anything,
 			dsi.containerID,
 		).Return(
 			types.ContainerJSON{
@@ -236,7 +242,7 @@ func TestLifecycleActionUpdateStatus(t *testing.T) {
 
 			if tt.containerStatus != "" {
 				mockClient.EXPECT().ContainerInspect(
-					dsi.ctx,
+					mock.Anything,
 					dsi.containerID,
 				).Return(
 					types.ContainerJSON{
@@ -270,7 +276,7 @@ func TestLifecycleInit(t *testing.T) {
 
 		// First, it lists all containers
 		mockClient.EXPECT().ContainerList(
-			dsi.ctx,
+			mock.Anything,
 			container.ListOptions{All: true},
 		).Return(
 			[]types.Container{{
@@ -296,7 +302,7 @@ func TestLifecycleInit(t *testing.T) {
 
 		// First, it lists all containers
 		mockClient.EXPECT().ContainerList(
-			dsi.ctx,
+			mock.Anything,
 			container.ListOptions{All: true},
 		).Return(
 			[]types.Container{},
@@ -305,7 +311,7 @@ func TestLifecycleInit(t *testing.T) {
 
 		// Second, because it can't find a container, it lists all images
 		mockClient.EXPECT().ImageList(
-			dsi.ctx,
+			mock.Anything,
 			image.ListOptions{All: true},
 		).Return(
 			[]image.Summary{{
@@ -319,7 +325,7 @@ func TestLifecycleInit(t *testing.T) {
 		// Third, now that we've found the image it should create a container
 		opts, hostOpts := dsi.options.toOptions()
 		mockClient.EXPECT().ContainerCreate(
-			dsi.ctx,
+			mock.Anything,
 			opts,
 			hostOpts,
 			(*network.NetworkingConfig)(nil),
@@ -343,7 +349,7 @@ func TestLifecycleInit(t *testing.T) {
 
 		// First, it lists all containers
 		mockClient.EXPECT().ContainerList(
-			dsi.ctx,
+			mock.Anything,
 			container.ListOptions{All: true},
 		).Return(
 			[]types.Container{},
@@ -352,7 +358,7 @@ func TestLifecycleInit(t *testing.T) {
 
 		// Second, because it can't find a container, it lists all images
 		mockClient.EXPECT().ImageList(
-			dsi.ctx,
+			mock.Anything,
 			image.ListOptions{All: true},
 		).Return(
 			[]image.Summary{},
@@ -361,7 +367,7 @@ func TestLifecycleInit(t *testing.T) {
 
 		// Third, because it can't find a container it pulls the image
 		mockClient.EXPECT().ImagePull(
-			dsi.ctx,
+			mock.Anything,
 			dsi.options.Image,
 			image.PullOptions{},
 		).Return(
@@ -376,7 +382,7 @@ func TestLifecycleInit(t *testing.T) {
 		// Fourth, now that we've pulled the image it should create a container
 		opts, hostOpts := dsi.options.toOptions()
 		mockClient.EXPECT().ContainerCreate(
-			dsi.ctx,
+			mock.Anything,
 			opts,
 			hostOpts,
 			(*network.NetworkingConfig)(nil),
