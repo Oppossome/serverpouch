@@ -1,0 +1,38 @@
+name: Lint and Test
+on: [push, pull_request]
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+         go-version: '1.24.0'
+
+      - name: Install gofumpt
+        run: go install mvdan.cc/gofumpt@latest
+      
+      - name: Run Tests
+        run: go test ./...
+
+      - name: Run gofumpt
+        run: |
+          if ! files=$(gofumpt -l .); then
+            echo "❌ gofumpt failed to run"
+            exit 1
+          fi
+
+          if [ -n "$files" ]; then
+            echo "❌ The following files need formatting:"
+            echo
+            echo "$files" | sed 's/^/  /'
+            echo
+            echo "To fix, run: make fmt"
+            echo "Or manually: gofumpt -w <file>"
+            exit 1
+          fi
+
+          echo "✅ All files are properly formatted"
