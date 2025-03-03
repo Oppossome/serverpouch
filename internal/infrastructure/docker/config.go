@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -77,4 +78,8 @@ func (dsio *DockerServerInstanceOptions) ToJSON() (string, error) {
 	}
 
 	return string(json), nil
+}
+
+func (dsio *DockerServerInstanceOptions) NewInstance(ctx context.Context) server.ServerInstance {
+	return NewDockerServerInstance(ctx, dsio)
 }

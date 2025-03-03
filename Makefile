@@ -1,4 +1,4 @@
-run:
+dev:
 	go run ./cmd/serverpouch
 
 test:
@@ -6,3 +6,5 @@ test:
 
 generate:
 	go generate ./tools/tools.go
+
+	

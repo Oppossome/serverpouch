@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+
 	"oppossome/serverpouch/internal/common/events"
 
 	"github.com/google/uuid"
@@ -58,4 +60,5 @@ type ServerInstanceConfig interface {
 	Type() ServerInstanceType
 	Ports() []int
 	ToJSON() (string, error)
+	NewInstance(context.Context) ServerInstance
 }

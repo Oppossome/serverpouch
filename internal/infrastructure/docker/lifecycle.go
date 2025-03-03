@@ -58,6 +58,11 @@ func (dsi *dockerServerInstance) lifecycle() {
 
 		// Passively update the lifecycle status
 		case <-time.After(time.Second * 30):
+			// Because actions can perform changes to the status, don't do anything that may interrupt their song and dance
+			if activeAction != nil {
+				continue
+			}
+
 			go dsi.lifecycleActionUpdateStatus()
 		}
 	}
@@ -103,6 +108,8 @@ func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAct
 			return
 		}
 
+		dsi.setStatus(server.ServerInstanceStatusStarting)
+
 		err := dsi.client.ContainerStart(dsi.ctx, containerID, container.StartOptions{})
 		if err != nil {
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to start container: %s", err))
@@ -114,6 +121,8 @@ func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAct
 			return
 		}
 
+		dsi.setStatus(server.ServerInstanceStatusStopping)
+
 		err := dsi.client.ContainerStop(dsi.ctx, dsi.containerID, container.StopOptions{})
 		if err != nil {
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to stop container: %s", err))
@@ -124,6 +133,8 @@ func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAct
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", status, action))
 			return
 		}
+
+		dsi.setStatus(server.ServerInstanceStatusStopping)
 
 		err := dsi.client.ContainerKill(dsi.ctx, dsi.containerID, "SIGTERM")
 		if err != nil {

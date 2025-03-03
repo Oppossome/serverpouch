@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
@@ -73,13 +72,7 @@ func NewTestDatabase(t *testing.T) (*schema.Queries, *databaseImpl, error) {
 		return nil, nil, err
 	}
 
-	sqlConn, err := sql.Open("postgres", connStr+" sslmode=disable")
-	if err != nil {
-		return nil, nil, err
-	}
-	defer sqlConn.Close()
-
-	err = schema.Migrate(sqlConn)
+	err = schema.Migrate(connStr)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -132,7 +132,9 @@ func TestLifecycle(t *testing.T) {
 			dsi.Action(server.ServerInstanceActionStop)
 		}()
 
+		assert.Equal(t, <-statusChan, server.ServerInstanceStatusStarting)
 		assert.Equal(t, <-statusChan, server.ServerInstanceStatusRunning)
+		assert.Equal(t, <-statusChan, server.ServerInstanceStatusStopping)
 		assert.Equal(t, <-statusChan, server.ServerInstanceStatusIdle)
 	})
 

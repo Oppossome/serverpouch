@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  database:
+    image: postgres:17.4-alpine3.21
+    environment:
+      POSTGRES_DB: serverpouch
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+      
