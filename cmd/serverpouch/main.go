@@ -38,8 +38,6 @@ func main() {
 		return
 	}
 
-
-	
 	appCtx, appCtxClose := context.WithCancel(context.Background())
 	defer appCtxClose()
 
