@@ -45,28 +45,13 @@ func testDockerServerInstance(t *testing.T, options *DockerServerInstanceOptions
 
 func assertTerminalOut(t *testing.T, dsi *dockerServerInstance, done chan<- struct{}, expected []string) {
 	ready := make(chan struct{})
-	
 	go func ()  {
 		defer func() { done <- struct{}{} }()
 	
 		termOut := dsi.events.TerminalOut.On()
 		defer dsi.events.TerminalOut.Off(termOut)
-	
 		ready <- struct{}{}
-
-<<<<<<< Updated upstream
-	termOut := dsi.events.TerminalOut.On()
-	defer dsi.events.TerminalOut.Off(termOut)
-
-	for _, expected := range expected {
-		select {
-		case <-time.After(5 * time.Second):
-			t.Error("testAssertTermOut Timed Out!")
-			return
-		case msg, ok := <-termOut:
-			assert.True(t, ok, "Messages ended prematurely")
-			assert.Equal(t, expected, msg)
-=======
+	
 		for _, expected := range expected {
 			select {
 			case <-time.After(5 * time.Second):
@@ -76,7 +61,6 @@ func assertTerminalOut(t *testing.T, dsi *dockerServerInstance, done chan<- stru
 				assert.True(t, ok, "Messages ended prematurely")
 				assert.Equal(t, expected, msg)
 			}
->>>>>>> Stashed changes
 		}
 	}()
 
