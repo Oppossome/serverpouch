@@ -51,7 +51,7 @@ func assertTerminalOut(t *testing.T, dsi *dockerServerInstance, done chan<- stru
 
 	for _, expected := range expected {
 		select {
-		case <-t.Context().Done():
+		case <-time.After(5 * time.Second):
 			t.Error("testAssertTermOut Timed Out!")
 			return
 		case msg, ok := <-termOut:
