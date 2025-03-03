@@ -219,7 +219,7 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 				return "", errors.Wrapf(err, "Found non-matching container image: %s", container.Image)
 			}
 
-			zerolog.Ctx(dsi.ctx).Info().Msgf("Found container \"%s\"", container.ID)
+			zerolog.Ctx(dsi.ctx).Info().Msgf("Found container \"%s\"", dsi.options.InstanceID)
 			return container.ID, nil
 		}
 	}
