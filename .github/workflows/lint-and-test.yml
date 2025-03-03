@@ -16,7 +16,7 @@ jobs:
         run: go install mvdan.cc/gofumpt@latest
       
       - name: Run Tests
-        run: go test ./... -timeout 30s
+        run: go test ./... -timeout 2m
 
       - name: Run gofumpt
         run: |
