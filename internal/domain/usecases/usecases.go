@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 type Usecases interface {
@@ -39,6 +40,7 @@ func New(ctx context.Context) (*usecasesImpl, error) {
 		return nil, errors.Wrap(err, "failed to initialize usecases")
 	}
 
+	zerolog.Ctx(ctx).Debug().Msg("usecases initialized")
 	return usecases, nil
 }
 

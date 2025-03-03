@@ -13,6 +13,7 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
 )
 
 // loadEnv loads the environment variables from the .env file, falling back to .env.example if the former is not found
@@ -39,6 +40,9 @@ func main() {
 
 	appCtx, appCtxClose := context.WithCancel(context.Background())
 	defer appCtxClose()
+
+	// Initialize the logger
+	appCtx = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().WithContext(appCtx)
 
 	// Initialize the database
 	db, err := database.New(appCtx, databaseURL)

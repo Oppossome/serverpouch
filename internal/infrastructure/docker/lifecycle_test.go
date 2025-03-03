@@ -283,7 +283,7 @@ func TestLifecycleInit(t *testing.T) {
 		)
 
 		// Since it finds the container, it returns immediately.
-		containerID, err := dsi.lifecycleInit()
+		containerID, err := dsi.lifecycleInit(dsi.ctx)
 		assert.Equal(t, uuid.Nil.String(), containerID)
 		assert.NoError(t, err)
 	})
@@ -330,7 +330,7 @@ func TestLifecycleInit(t *testing.T) {
 			nil,
 		)
 
-		containerID, err := dsi.lifecycleInit()
+		containerID, err := dsi.lifecycleInit(dsi.ctx)
 		assert.Equal(t, uuid.Nil.String(), containerID)
 		assert.NoError(t, err)
 	})
@@ -395,7 +395,7 @@ func TestLifecycleInit(t *testing.T) {
 			"[Docker] download complete",
 		})
 
-		containerID, err := dsi.lifecycleInit()
+		containerID, err := dsi.lifecycleInit(dsi.ctx)
 		assert.Equal(t, uuid.Nil.String(), containerID)
 		assert.NoError(t, err)
 

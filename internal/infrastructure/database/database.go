@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -31,9 +32,10 @@ type databaseImpl struct {
 
 var _ Database = (*databaseImpl)(nil)
 
-func New(context context.Context, connStr string) (*databaseImpl, error) {
-	conn, err := pgx.Connect(context, connStr)
+func New(ctx context.Context, connStr string) (*databaseImpl, error) {
+	conn, err := pgx.Connect(ctx, connStr)
 	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to connect to database")
 		return nil, errors.Wrap(err, "failed to connect to database")
 	}
 
@@ -42,6 +44,7 @@ func New(context context.Context, connStr string) (*databaseImpl, error) {
 		queries: schema.New(conn),
 	}
 
+	zerolog.Ctx(ctx).Debug().Msg("connected to database")
 	return database, nil
 }
 

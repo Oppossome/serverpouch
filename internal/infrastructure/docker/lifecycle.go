@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 // MARK: lifecycle
@@ -54,7 +56,7 @@ func (dsi *dockerServerInstance) lifecycle() {
 			activeAction = action
 			activeActionDone = make(chan struct{})
 
-			go dsi.lifecycleAction(action.action, activeActionDone)
+			go dsi.lifecycleAction(dsi.ctx, action.action, activeActionDone)
 
 		// Passively update the lifecycle status
 		case <-time.After(time.Second * 30):
@@ -71,7 +73,7 @@ func (dsi *dockerServerInstance) lifecycle() {
 // MARK: lifecycleAction
 
 // lifecycleAction is used to perform the associated lifecycleActions
-func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAction, activeActionDone chan<- struct{}) {
+func (dsi *dockerServerInstance) lifecycleAction(ctx context.Context, action server.ServerInstanceAction, activeActionDone chan<- struct{}) {
 	defer func() {
 		dsi.lifecycleActionUpdateStatus()
 		activeActionDone <- struct{}{}
@@ -82,17 +84,24 @@ func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAct
 	containerID := dsi.containerID
 	dsi.mu.RUnlock()
 
+	ctx = zerolog.Ctx(ctx).With().
+		Str("action", string(action)).
+		Str("status", string(status)).
+		Logger().WithContext(ctx)
+
 	switch {
 	case containerID == "":
 		if action != server.ServerInstanceActionStart {
+			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", server.ServerInstanceStatusInitializing, action)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", server.ServerInstanceStatusInitializing, action))
 			return
 		}
 
-		containerID, err := dsi.lifecycleInit()
+		containerID, err := dsi.lifecycleInit(ctx)
 		if err != nil {
 			dsi.setStatus(server.ServerInstanceStatusErrored)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to get container: %s", err))
+			zerolog.Ctx(ctx).Error().Msgf("Unable to get container: %s", err)
 			return
 		}
 
@@ -104,40 +113,45 @@ func (dsi *dockerServerInstance) lifecycleAction(action server.ServerInstanceAct
 
 	case action == server.ServerInstanceActionStart:
 		if status != server.ServerInstanceStatusIdle {
+			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", status, action)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", status, action))
 			return
 		}
 
 		dsi.setStatus(server.ServerInstanceStatusStarting)
 
-		err := dsi.client.ContainerStart(dsi.ctx, containerID, container.StartOptions{})
+		err := dsi.client.ContainerStart(ctx, containerID, container.StartOptions{})
 		if err != nil {
+			zerolog.Ctx(ctx).Error().Msgf("Unable to start container: %s", err)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to start container: %s", err))
 		}
 
 	case action == server.ServerInstanceActionStop:
 		if status != server.ServerInstanceStatusRunning {
+			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", status, action)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", status, action))
 			return
 		}
 
 		dsi.setStatus(server.ServerInstanceStatusStopping)
 
-		err := dsi.client.ContainerStop(dsi.ctx, dsi.containerID, container.StopOptions{})
+		err := dsi.client.ContainerStop(ctx, dsi.containerID, container.StopOptions{})
 		if err != nil {
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to stop container: %s", err))
 		}
 
 	case action == server.ServerInstanceActionKill:
 		if status != server.ServerInstanceStatusRunning {
+			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", status, action)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", status, action))
 			return
 		}
 
 		dsi.setStatus(server.ServerInstanceStatusStopping)
 
-		err := dsi.client.ContainerKill(dsi.ctx, dsi.containerID, "SIGTERM")
+		err := dsi.client.ContainerKill(ctx, dsi.containerID, "SIGTERM")
 		if err != nil {
+			zerolog.Ctx(ctx).Error().Msgf("Unable to kill container: %s", err)
 			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to kill container: %s", err))
 		}
 	}
@@ -159,6 +173,7 @@ func (dsi *dockerServerInstance) lifecycleActionUpdateStatus() {
 
 	inspect, err := dsi.client.ContainerInspect(dsi.ctx, dsi.containerID)
 	if err != nil {
+		zerolog.Ctx(dsi.ctx).Error().Msgf("Unable to inspect container: %s", err)
 		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to inspect container: %s", err))
 		return
 	}
@@ -171,6 +186,7 @@ func (dsi *dockerServerInstance) lifecycleActionUpdateStatus() {
 	case inspect.State.Status == "running":
 		dsi.setStatus(server.ServerInstanceStatusRunning)
 	default:
+		zerolog.Ctx(dsi.ctx).Error().Msgf("Unknown docker status: %s", inspect.State.Status)
 		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unknown docker status: %s", inspect.State.Status))
 		dsi.setStatus(server.ServerInstanceStatusErrored)
 	}
@@ -188,9 +204,10 @@ type dockerEvent struct {
 	} `json:"progressDetail"`
 }
 
-func (dsi *dockerServerInstance) lifecycleInit() (string, error) {
+func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, error) {
 	containers, err := dsi.client.ContainerList(dsi.ctx, container.ListOptions{All: true})
 	if err != nil {
+		zerolog.Ctx(dsi.ctx).Error().Msg("Unable to list containers")
 		return "", errors.Wrap(err, "Unable to list containers")
 	}
 
@@ -198,9 +215,11 @@ func (dsi *dockerServerInstance) lifecycleInit() (string, error) {
 	for _, container := range containers {
 		if slices.Contains(container.Names, "/"+dsi.options.InstanceID.String()) {
 			if container.Image != dsi.options.Image {
+				zerolog.Ctx(dsi.ctx).Error().Msgf("Found non-matching container image: %s", container.Image)
 				return "", errors.Wrapf(err, "Found non-matching container image: %s", container.Image)
 			}
 
+			zerolog.Ctx(dsi.ctx).Info().Msgf("Found container \"%s\"", dsi.options.InstanceID)
 			return container.ID, nil
 		}
 	}
@@ -215,6 +234,7 @@ func (dsi *dockerServerInstance) lifecycleInit() (string, error) {
 	for _, image := range images {
 		name, ok := image.Labels["org.opencontainers.image.ref.name"]
 		if ok && name == dsi.options.Image {
+			zerolog.Ctx(dsi.ctx).Info().Msgf("Found image \"%s\"", dsi.options.Image)
 			foundImage = true
 			break
 		}
@@ -222,9 +242,11 @@ func (dsi *dockerServerInstance) lifecycleInit() (string, error) {
 
 	// Since we couldn't find the image, we'll pull it.
 	if !foundImage {
+		zerolog.Ctx(dsi.ctx).Info().Msgf("Pulling image \"%s\"", dsi.options.Image)
 		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Pulling image \"%s\"", dsi.options.Image))
 		reader, err := dsi.client.ImagePull(dsi.ctx, dsi.options.Image, image.PullOptions{})
 		if err != nil {
+			zerolog.Ctx(dsi.ctx).Error().Msgf("Failed to pull image \"%s\"", dsi.options.Image)
 			return "", errors.Wrapf(err, "Failed to pull image \"%s\"", dsi.options.Image)
 		}
 
@@ -237,26 +259,33 @@ func (dsi *dockerServerInstance) lifecycleInit() (string, error) {
 					break
 				}
 
+				zerolog.Ctx(dsi.ctx).Error().Msg("Failed to decode pull progress")
 				return "", errors.Wrap(err, "Failed to decode pull progress")
 			}
 
 			if pullEvent.Error != "" {
+				zerolog.Ctx(dsi.ctx).Error().Msgf("Pull errored: %s", pullEvent.Error)
 				return "", errors.Errorf("Pull errored: %s", pullEvent.Error)
 			}
 
 			if pullEvent.Status != "" {
+				zerolog.Ctx(dsi.ctx).Info().Msgf("[Docker] %s", pullEvent.Status)
 				dsi.events.TerminalOut.Dispatch(fmt.Sprintf("[Docker] %s", pullEvent.Status))
 			}
 		}
+
+		zerolog.Ctx(dsi.ctx).Info().Msgf("Pulled image \"%s\"", dsi.options.Image)
 	}
 
 	// Create the container.
 	opts, hostOpts := dsi.options.toOptions()
 	container, err := dsi.client.ContainerCreate(dsi.ctx, opts, hostOpts, nil, nil, dsi.options.InstanceID.String())
 	if err != nil {
+		zerolog.Ctx(dsi.ctx).Error().Msg("Unable to create container")
 		return "", errors.Wrap(err, "Unable to create container")
 	}
 
+	zerolog.Ctx(dsi.ctx).Info().Msgf("Created container \"%s\"", dsi.options.InstanceID)
 	return container.ID, nil
 }
 
@@ -272,6 +301,7 @@ func (dsi *dockerServerInstance) lifecycleInitAttach() {
 		Stderr: true,
 	})
 	if err != nil {
+		zerolog.Ctx(dsi.ctx).Error().Msgf("Unable to attach to container: %s", err)
 		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to attach to container: %s", err))
 		return
 	}
@@ -296,8 +326,10 @@ func (dsi *dockerServerInstance) lifecycleInitAttach() {
 				termIn += "\n"
 			}
 
+			zerolog.Ctx(dsi.ctx).Debug().Msgf("Executing command: %s", termIn)
 			_, err := attach.Conn.Write([]byte(termIn))
 			if err != nil {
+				zerolog.Ctx(dsi.ctx).Error().Msgf("Error writing to container: %s", err)
 				dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Error writing to container: %s", err))
 				return
 			}

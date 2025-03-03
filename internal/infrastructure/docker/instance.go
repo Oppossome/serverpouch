@@ -7,6 +7,7 @@ import (
 	"oppossome/serverpouch/internal/domain/server"
 
 	"github.com/docker/docker/client"
+	"github.com/rs/zerolog"
 )
 
 var _ server.ServerInstance = (*dockerServerInstance)(nil)
@@ -80,6 +81,11 @@ func (d *dockerServerInstance) Close() {
 // Creates a new instance of the dockerServerInstance and kicks off its lifecycle.
 func NewDockerServerInstance(ctx context.Context, options *DockerServerInstanceOptions) *dockerServerInstance {
 	ctx, ctxCancel := context.WithCancel(ctx)
+
+	// Add the instance ID to the context logger.
+	ctx = zerolog.Ctx(ctx).With().
+		Stringer("instance_id", options.InstanceID).Logger().
+		WithContext(ctx)
 
 	serverInstance := &dockerServerInstance{
 		ctx:           ctx,
