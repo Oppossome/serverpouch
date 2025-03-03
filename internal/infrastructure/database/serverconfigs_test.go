@@ -12,6 +12,8 @@ import (
 )
 
 func TestGetServerConfig(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Ok", func(t *testing.T) {
 		queries, dbRepo, err := database.NewTestDatabase(t)
 		assert.NoError(t, err)
@@ -39,6 +41,8 @@ func TestGetServerConfig(t *testing.T) {
 }
 
 func TestListServerConfigs(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Ok", func(t *testing.T) {
 		queries, dbRepo, err := database.NewTestDatabase(t)
 		assert.NoError(t, err)
