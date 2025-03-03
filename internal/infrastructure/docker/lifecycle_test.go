@@ -66,8 +66,6 @@ func assertTerminalOut(t *testing.T, dsi *dockerServerInstance, done chan<- stru
 // MARK: - lifecycle
 
 func TestLifecycle(t *testing.T) {
-	t.Parallel()
-
 	t.Run("Ok - Action lifecycle behaves appropriately", func(t *testing.T) {
 		mockClient, dsi := testDockerServerInstance(t, &DockerServerInstanceOptions{
 			InstanceID: uuid.New(),
@@ -191,8 +189,6 @@ func TestLifecycle(t *testing.T) {
 // MARK: - lifecycleActionUpdateStatus
 
 func TestLifecycleActionUpdateStatus(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name            string
 		containerID     string
@@ -260,8 +256,6 @@ func TestLifecycleActionUpdateStatus(t *testing.T) {
 // MARK: - lifecycleInit
 
 func TestLifecycleInit(t *testing.T) {
-	t.Parallel()
-
 	t.Run("Ok - Finds the container", func(t *testing.T) {
 		mockClient, dsi := testDockerServerInstance(t, &DockerServerInstanceOptions{
 			InstanceID: uuid.New(),
