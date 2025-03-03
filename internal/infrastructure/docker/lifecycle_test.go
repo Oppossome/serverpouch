@@ -44,8 +44,17 @@ func testDockerServerInstance(t *testing.T, options *DockerServerInstanceOptions
 }
 
 func assertTerminalOut(t *testing.T, dsi *dockerServerInstance, done chan<- struct{}, expected []string) {
-	defer func() { done <- struct{}{} }()
+	ready := make(chan struct{})
+	
+	go func ()  {
+		defer func() { done <- struct{}{} }()
+	
+		termOut := dsi.events.TerminalOut.On()
+		defer dsi.events.TerminalOut.Off(termOut)
+	
+		ready <- struct{}{}
 
+<<<<<<< Updated upstream
 	termOut := dsi.events.TerminalOut.On()
 	defer dsi.events.TerminalOut.Off(termOut)
 
@@ -57,8 +66,22 @@ func assertTerminalOut(t *testing.T, dsi *dockerServerInstance, done chan<- stru
 		case msg, ok := <-termOut:
 			assert.True(t, ok, "Messages ended prematurely")
 			assert.Equal(t, expected, msg)
+=======
+		for _, expected := range expected {
+			select {
+			case <-time.After(5 * time.Second):
+				t.Error("testAssertTermOut Timed Out!")
+				return
+			case msg, ok := <-termOut:
+				assert.True(t, ok, "Messages ended prematurely")
+				assert.Equal(t, expected, msg)
+			}
+>>>>>>> Stashed changes
 		}
-	}
+	}()
+
+	// Wait for the listener to be ready
+	<-ready
 }
 
 // MARK: Tests
@@ -388,7 +411,7 @@ func TestLifecycleInit(t *testing.T) {
 		)
 
 		done := make(chan struct{})
-		go assertTerminalOut(t, dsi, done, []string{
+		assertTerminalOut(t, dsi, done, []string{
 			"Pulling image \"Test\"",
 			"[Docker] pulling fs layer",
 			"[Docker] downloading",
