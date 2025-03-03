@@ -260,8 +260,6 @@ func TestLifecycleActionUpdateStatus(t *testing.T) {
 // MARK: - lifecycleInit
 
 func TestLifecycleInit(t *testing.T) {
-	t.Parallel()
-
 	t.Run("Ok - Finds the container", func(t *testing.T) {
 		mockClient, dsi := testDockerServerInstance(t, &DockerServerInstanceOptions{
 			InstanceID: uuid.New(),
