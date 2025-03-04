@@ -11,7 +11,7 @@ go install mvdan.cc/gofumpt@latest
 
 To run gofumpt, use the following command while in the main directory:
 ```bash
-gofumpt -l -w . 
+make fmt
 ```
 
 If you'd like to configure gofumpt to run when you save, see this [gofumpt README](https://github.com/mvdan/gofumpt?tab=readme-ov-file#installation) for more information.
@@ -19,14 +19,14 @@ If you'd like to configure gofumpt to run when you save, see this [gofumpt READM
 ## sqlc
 sqlc is a tool that generates Go code from SQL queries. It is used to create type safe Go code from SQL queries. It is used to generate the code for the database queries in the serverpouch project.
 
-To run sqlc, use the following command while in the tools directory:
+To run sqlc, use the following command while in the main directory:
 ```bash
-go run github.com/sqlc-dev/sqlc/cmd/sqlc 
+make generate
 ```
 
-Alternatively, you may run the following command to execute all go:generate commands in the tools directory:
+Alternatively, you can run sqlc directly with the following command:
 ```bash
-go generate .
+go run github.com/sqlc-dev/sqlc/cmd/sqlc 
 ```
 
 ## sql-migrate
@@ -56,9 +56,9 @@ go run github.com/rubenv/sql-migrate/sql-migrate up
 ## mockery
 [mockery](https://github.com/vektra/mockery) is a tool that generates mock implementations of Go interfaces. It is used to create mock implementations of interfaces for testing in the serverpouch project.
 
-To run mockery, use the following command while in the tools directory:
+To run mockery, use the following command in the main directory:
 ```bash
-go generate .
+make generate
 ```
 
 This will generate mock implementations of the interfaces specified in the `.mockery.yml` file.

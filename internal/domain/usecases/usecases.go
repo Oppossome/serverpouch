@@ -57,6 +57,7 @@ func (usc *usecasesImpl) init(ctx context.Context) error {
 		usc.srvInstances[config.ID()] = config.NewInstance(ctx)
 	}
 
+	zerolog.Ctx(ctx).Debug().Msgf("%d server instances loaded", len(usc.srvInstances))
 	return nil
 }
 

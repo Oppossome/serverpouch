@@ -207,7 +207,7 @@ type dockerEvent struct {
 func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, error) {
 	containers, err := dsi.client.ContainerList(dsi.ctx, container.ListOptions{All: true})
 	if err != nil {
-		zerolog.Ctx(dsi.ctx).Error().Msg("Unable to list containers")
+		zerolog.Ctx(ctx).Error().Msg("Unable to list containers")
 		return "", errors.Wrap(err, "Unable to list containers")
 	}
 
@@ -215,17 +215,17 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 	for _, container := range containers {
 		if slices.Contains(container.Names, "/"+dsi.options.InstanceID.String()) {
 			if container.Image != dsi.options.Image {
-				zerolog.Ctx(dsi.ctx).Error().Msgf("Found non-matching container image: %s", container.Image)
+				zerolog.Ctx(ctx).Error().Msgf("Found non-matching container image: %s", container.Image)
 				return "", errors.Wrapf(err, "Found non-matching container image: %s", container.Image)
 			}
 
-			zerolog.Ctx(dsi.ctx).Info().Msgf("Found container \"%s\"", dsi.options.InstanceID)
+			zerolog.Ctx(ctx).Info().Msgf("Found container \"%s\"", dsi.options.InstanceID)
 			return container.ID, nil
 		}
 	}
 
 	// Check if we have the image already.
-	images, err := dsi.client.ImageList(dsi.ctx, image.ListOptions{All: true})
+	images, err := dsi.client.ImageList(ctx, image.ListOptions{All: true})
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to list images")
 	}
@@ -234,7 +234,7 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 	for _, image := range images {
 		name, ok := image.Labels["org.opencontainers.image.ref.name"]
 		if ok && name == dsi.options.Image {
-			zerolog.Ctx(dsi.ctx).Info().Msgf("Found image \"%s\"", dsi.options.Image)
+			zerolog.Ctx(ctx).Info().Msgf("Found image \"%s\"", dsi.options.Image)
 			foundImage = true
 			break
 		}
@@ -242,11 +242,11 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 
 	// Since we couldn't find the image, we'll pull it.
 	if !foundImage {
-		zerolog.Ctx(dsi.ctx).Info().Msgf("Pulling image \"%s\"", dsi.options.Image)
+		zerolog.Ctx(ctx).Info().Msgf("Pulling image \"%s\"", dsi.options.Image)
 		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Pulling image \"%s\"", dsi.options.Image))
-		reader, err := dsi.client.ImagePull(dsi.ctx, dsi.options.Image, image.PullOptions{})
+		reader, err := dsi.client.ImagePull(ctx, dsi.options.Image, image.PullOptions{})
 		if err != nil {
-			zerolog.Ctx(dsi.ctx).Error().Msgf("Failed to pull image \"%s\"", dsi.options.Image)
+			zerolog.Ctx(ctx).Error().Msgf("Failed to pull image \"%s\"", dsi.options.Image)
 			return "", errors.Wrapf(err, "Failed to pull image \"%s\"", dsi.options.Image)
 		}
 
@@ -259,33 +259,33 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 					break
 				}
 
-				zerolog.Ctx(dsi.ctx).Error().Msg("Failed to decode pull progress")
+				zerolog.Ctx(ctx).Error().Msg("Failed to decode pull progress")
 				return "", errors.Wrap(err, "Failed to decode pull progress")
 			}
 
 			if pullEvent.Error != "" {
-				zerolog.Ctx(dsi.ctx).Error().Msgf("Pull errored: %s", pullEvent.Error)
+				zerolog.Ctx(ctx).Error().Msgf("Pull errored: %s", pullEvent.Error)
 				return "", errors.Errorf("Pull errored: %s", pullEvent.Error)
 			}
 
 			if pullEvent.Status != "" {
-				zerolog.Ctx(dsi.ctx).Info().Msgf("[Docker] %s", pullEvent.Status)
+				zerolog.Ctx(ctx).Info().Msgf("[Docker] %s", pullEvent.Status)
 				dsi.events.TerminalOut.Dispatch(fmt.Sprintf("[Docker] %s", pullEvent.Status))
 			}
 		}
 
-		zerolog.Ctx(dsi.ctx).Info().Msgf("Pulled image \"%s\"", dsi.options.Image)
+		zerolog.Ctx(ctx).Info().Msgf("Pulled image \"%s\"", dsi.options.Image)
 	}
 
 	// Create the container.
 	opts, hostOpts := dsi.options.toOptions()
-	container, err := dsi.client.ContainerCreate(dsi.ctx, opts, hostOpts, nil, nil, dsi.options.InstanceID.String())
+	container, err := dsi.client.ContainerCreate(ctx, opts, hostOpts, nil, nil, dsi.options.InstanceID.String())
 	if err != nil {
-		zerolog.Ctx(dsi.ctx).Error().Msg("Unable to create container")
+		zerolog.Ctx(ctx).Error().Msg("Unable to create container")
 		return "", errors.Wrap(err, "Unable to create container")
 	}
 
-	zerolog.Ctx(dsi.ctx).Info().Msgf("Created container \"%s\"", dsi.options.InstanceID)
+	zerolog.Ctx(ctx).Info().Msgf("Created container \"%s\"", dsi.options.InstanceID)
 	return container.ID, nil
 }
 

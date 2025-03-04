@@ -5,7 +5,7 @@ package main
 
 import (
 	_ "github.com/rubenv/sql-migrate/sql-migrate"
-	_ "github.com/sqlc-dev/sqlc"
+	_ "github.com/sqlc-dev/sqlc/cmd/sqlc"
 	_ "github.com/vektra/mockery/v2"
 )
 
