@@ -19,9 +19,9 @@ jobs:
         run: |
           make generate
 
-          if [[ -n $(git status --porcelain) ]]; then
+          if changes=$(git status --porcelain) && [ -n "$changes" ]; then
             echo "❌ There are uncommitted changes after running code generation:"
-            git status --porcelain
+            echo "$changes" | sed 's/^/  /'
             echo
             echo "Please run 'make generate' locally and commit the changes"
             exit 1
