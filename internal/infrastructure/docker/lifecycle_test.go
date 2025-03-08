@@ -32,10 +32,10 @@ func testDockerServerInstance(t *testing.T, options *DockerServerInstanceOptions
 		ctxCancelDone: make(chan struct{}),
 
 		client:  mockAPIClient,
+		events:  server.NewServerInstanceEvents(),
 		options: options,
 
-		actionChan: make(chan *dockerServerInstanceAction),
-		events:     server.NewServerInstanceEvents(),
+		actionChan: make(chan chan struct{}),
 
 		mu:          sync.RWMutex{},
 		containerID: "",
@@ -130,8 +130,8 @@ func TestLifecycle(t *testing.T) {
 
 		go dsi.lifecycle()
 		go func() {
-			dsi.Action(server.ServerInstanceActionStart)
-			dsi.Action(server.ServerInstanceActionStop)
+			dsi.Start()
+			dsi.Stop()
 		}()
 
 		assert.Equal(t, <-statusChan, server.ServerInstanceStatusStarting)
@@ -177,7 +177,7 @@ func TestLifecycle(t *testing.T) {
 
 		done := make(chan struct{})
 		go func() {
-			dsi.Action(server.ServerInstanceActionStart)
+			dsi.Start()
 			done <- struct{}{}
 		}()
 
@@ -284,7 +284,7 @@ func TestLifecycleInit(t *testing.T) {
 			nil,
 		)
 
-		// Since it finds the container, it returns immediately.
+		go dsi.lifecycle()
 		containerID, err := dsi.lifecycleInit(dsi.ctx)
 		assert.Equal(t, uuid.Nil.String(), containerID)
 		assert.NoError(t, err)
@@ -332,6 +332,7 @@ func TestLifecycleInit(t *testing.T) {
 			nil,
 		)
 
+		go dsi.lifecycle()
 		containerID, err := dsi.lifecycleInit(dsi.ctx)
 		assert.Equal(t, uuid.Nil.String(), containerID)
 		assert.NoError(t, err)
@@ -397,6 +398,7 @@ func TestLifecycleInit(t *testing.T) {
 			"[Docker] download complete",
 		})
 
+		go dsi.lifecycle()
 		containerID, err := dsi.lifecycleInit(dsi.ctx)
 		assert.Equal(t, uuid.Nil.String(), containerID)
 		assert.NoError(t, err)

@@ -20,140 +20,53 @@ import (
 
 // MARK: lifecycle
 
-// Begins the dockerServerInstance lifecycle loop.
 func (dsi *dockerServerInstance) lifecycle() {
-	defer func() {
-		dsi.events.Status.Close()
-		dsi.ctxCancelDone <- struct{}{}
-	}()
+	defer func() { dsi.ctxCancelDone <- struct{}{} }()
 
-	// actionChan is used to listen for a new action and is nil whilst we're processing an action.
 	actionChan := dsi.actionChan
-	var activeAction *dockerServerInstanceAction
-	var activeActionDone chan struct{}
+	var actionDone chan struct{}
+	defer func() {
+		if actionDone != nil {
+			<-actionDone
+		}
+	}()
 
 	for {
 		select {
 		case <-dsi.ctx.Done():
-			// If we're in the middle of an action, see it through.
-			if activeActionDone != nil {
-				<-activeActionDone
-				activeAction.done <- struct{}{}
-			}
-
 			return
 
-		// Handle lifecycleAction completion
-		case <-activeActionDone:
-			activeAction.done <- struct{}{}
-			actionChan = dsi.actionChan
-			activeAction = nil
-			activeActionDone = nil
-
-		// Handle lifecycleActions
-		case action := <-actionChan:
+		// Block new actions while we're working
+		case actionDone = <-actionChan:
 			actionChan = nil
-			activeAction = action
-			activeActionDone = make(chan struct{})
 
-			go dsi.lifecycleAction(dsi.ctx, action.action, activeActionDone)
+		// Whenever the action is done, listen for more work
+		case <-actionDone:
+			actionChan = dsi.actionChan
+			actionDone = nil
 
-		// Passively update the lifecycle status
+		// If we're not busy, update our status
 		case <-time.After(time.Second * 30):
-			// Because actions can perform changes to the status, don't do anything that may interrupt their song and dance
-			if activeAction != nil {
-				continue
+			if actionDone == nil {
+				dsi.lifecycleActionUpdateStatus()
 			}
-
-			go dsi.lifecycleActionUpdateStatus()
 		}
 	}
 }
 
 // MARK: lifecycleAction
 
-// lifecycleAction is used to perform the associated lifecycleActions
-func (dsi *dockerServerInstance) lifecycleAction(ctx context.Context, action server.ServerInstanceAction, activeActionDone chan<- struct{}) {
-	defer func() {
-		dsi.lifecycleActionUpdateStatus()
-		activeActionDone <- struct{}{}
-	}()
+func (dsi *dockerServerInstance) lifecycleAction(ctx context.Context) (func(), error) {
+	doneChan := make(chan struct{})
 
-	dsi.mu.RLock()
-	status := dsi.status
-	containerID := dsi.containerID
-	dsi.mu.RUnlock()
-
-	ctx = zerolog.Ctx(ctx).With().
-		Str("action", string(action)).
-		Str("status", string(status)).
-		Logger().WithContext(ctx)
-
-	switch {
-	case containerID == "":
-		if action != server.ServerInstanceActionStart {
-			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", server.ServerInstanceStatusInitializing, action)
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", server.ServerInstanceStatusInitializing, action))
-			return
-		}
-
-		containerID, err := dsi.lifecycleInit(ctx)
-		if err != nil {
-			dsi.setStatus(server.ServerInstanceStatusErrored)
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to get container: %s", err))
-			zerolog.Ctx(ctx).Error().Msgf("Unable to get container: %s", err)
-			return
-		}
-
-		dsi.mu.Lock()
-		dsi.containerID = containerID
-		dsi.mu.Unlock()
-
-		go dsi.lifecycleInitAttach()
-
-	case action == server.ServerInstanceActionStart:
-		if status != server.ServerInstanceStatusIdle {
-			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", status, action)
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", status, action))
-			return
-		}
-
-		dsi.setStatus(server.ServerInstanceStatusStarting)
-
-		err := dsi.client.ContainerStart(ctx, containerID, container.StartOptions{})
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Msgf("Unable to start container: %s", err)
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to start container: %s", err))
-		}
-
-	case action == server.ServerInstanceActionStop:
-		if status != server.ServerInstanceStatusRunning {
-			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", status, action)
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", status, action))
-			return
-		}
-
-		dsi.setStatus(server.ServerInstanceStatusStopping)
-
-		err := dsi.client.ContainerStop(ctx, dsi.containerID, container.StopOptions{})
-		if err != nil {
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to stop container: %s", err))
-		}
-
-	case action == server.ServerInstanceActionKill:
-		if status != server.ServerInstanceStatusRunning {
-			zerolog.Ctx(ctx).Error().Msgf("Invalid %s action: %s", status, action)
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Invalid %s action: %s", status, action))
-			return
-		}
-
-		dsi.setStatus(server.ServerInstanceStatusStopping)
-
-		err := dsi.client.ContainerKill(ctx, dsi.containerID, "SIGTERM")
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Msgf("Unable to kill container: %s", err)
-			dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to kill container: %s", err))
-		}
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("context closed")
+	case dsi.actionChan <- doneChan:
+		return func() {
+			dsi.lifecycleActionUpdateStatus()
+			doneChan <- struct{}{}
+		}, nil
 	}
 }
 
@@ -171,7 +84,7 @@ func (dsi *dockerServerInstance) lifecycleActionUpdateStatus() {
 		return
 	}
 
-	inspect, err := dsi.client.ContainerInspect(dsi.ctx, dsi.containerID)
+	inspect, err := dsi.client.ContainerInspect(dsi.ctx, containerID)
 	if err != nil {
 		zerolog.Ctx(dsi.ctx).Error().Msgf("Unable to inspect container: %s", err)
 		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to inspect container: %s", err))
@@ -205,6 +118,12 @@ type dockerEvent struct {
 }
 
 func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, error) {
+	actionDone, err := dsi.lifecycleAction(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to acquire init action")
+	}
+	defer actionDone()
+
 	containers, err := dsi.client.ContainerList(dsi.ctx, container.ListOptions{All: true})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Msg("Unable to list containers")
@@ -219,7 +138,7 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 				return "", errors.Wrapf(err, "Found non-matching container image: %s", container.Image)
 			}
 
-			zerolog.Ctx(ctx).Info().Msgf("Found container \"%s\"", dsi.options.InstanceID)
+			zerolog.Ctx(ctx).Info().Msgf("Found container \"%s\"", container.ID)
 			return container.ID, nil
 		}
 	}
@@ -289,10 +208,6 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 	return container.ID, nil
 }
 
-// MARK: lifecycleInitAttach
-
-// lifecycleInitAttach is responsible for attaching to the container and
-// replicating messages to and from the client.
 func (dsi *dockerServerInstance) lifecycleInitAttach() {
 	attach, err := dsi.client.ContainerAttach(dsi.ctx, dsi.containerID, container.AttachOptions{
 		Stream: true,
