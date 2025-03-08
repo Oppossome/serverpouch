@@ -28,6 +28,7 @@ func (dsic *DockerServerInstanceOptions) toOptions() (*container.Config, *contai
 		Image:        dsic.Image,
 		ExposedPorts: nat.PortSet{},
 		Volumes:      map[string]struct{}{},
+		Env:          dsic.ContainerEnv,
 	}
 
 	hostConfig := container.HostConfig{

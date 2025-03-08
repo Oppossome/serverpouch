@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"oppossome/serverpouch/internal/domain/usecases"
 	"oppossome/serverpouch/internal/infrastructure/database"
+	"oppossome/serverpouch/internal/infrastructure/database/schema"
 	"oppossome/serverpouch/internal/infrastructure/docker"
 
 	"github.com/docker/docker/client"
@@ -17,7 +17,7 @@ import (
 )
 
 // loadEnv loads the environment variables from the .env file, falling back to .env.example if the former is not found
-func loadEnv() {
+func loadEnv(ctx context.Context) {
 	if err := godotenv.Load(".env"); err == nil {
 		return
 	}
@@ -26,28 +26,35 @@ func loadEnv() {
 		return
 	}
 
-	fmt.Println("Failed to find .env file")
+	zerolog.Ctx(ctx).Info().Msg("Failed to find associated .env file")
 }
 
 func main() {
-	loadEnv()
-
-	databaseURL, ok := os.LookupEnv("DATABASE_URL")
-	if !ok {
-		fmt.Println("DATABASE_URL not provided!")
-		return
-	}
-
 	appCtx, appCtxClose := context.WithCancel(context.Background())
 	defer appCtxClose()
 
 	// Initialize the logger
 	appCtx = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().WithContext(appCtx)
 
+	loadEnv(appCtx)
+
+	databaseURL, ok := os.LookupEnv("DATABASE_URL")
+	if !ok {
+		zerolog.Ctx(appCtx).Error().Msg("DATABASE_URL not provided")
+		return
+	}
+
+	// Migrate the database
+	err := schema.Migrate(appCtx, databaseURL)
+	if err != nil {
+		zerolog.Ctx(appCtx).Err(err).Msg("failed to migrate database")
+		return
+	}
+
 	// Initialize the database
 	db, err := database.New(appCtx, databaseURL)
 	if err != nil {
-		fmt.Printf("Unable to start database %s", err)
+		zerolog.Ctx(appCtx).Err(err).Msg("failed to start database")
 		return
 	}
 
@@ -56,7 +63,7 @@ func main() {
 	// Initialize the docker client
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		fmt.Printf("Unable to start docker client %s", err)
+		zerolog.Ctx(appCtx).Err(err).Msg("failed to start docker client")
 		return
 	}
 
@@ -65,7 +72,7 @@ func main() {
 	// Initialize the usecases
 	usecases, err := usecases.New(appCtx)
 	if err != nil {
-		fmt.Printf("Unable to start usecases %s", err)
+		zerolog.Ctx(appCtx).Err(err).Msg("failed to start usecases")
 		return
 	}
 	defer usecases.Close()

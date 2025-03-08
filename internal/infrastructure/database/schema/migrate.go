@@ -1,11 +1,12 @@
 package schema
 
 import (
+	"context"
 	"database/sql"
 	"embed"
-	"fmt"
 
 	_ "github.com/lib/pq"
+	"github.com/rs/zerolog"
 
 	migrate "github.com/rubenv/sql-migrate"
 )
@@ -13,10 +14,10 @@ import (
 //go:embed migrations/*
 var dbMigrations embed.FS
 
-func Migrate(connStr string) error {
+func Migrate(ctx context.Context, connStr string) error {
 	sqlConn, err := sql.Open("postgres", connStr+" sslmode=disable")
 	if err != nil {
-		fmt.Println("failed to connect to database...")
+		zerolog.Ctx(ctx).Err(err).Msg("failed to connect to database")
 		return err
 	}
 	defer sqlConn.Close()
@@ -26,9 +27,9 @@ func Migrate(connStr string) error {
 		Root:       "migrations",
 	}
 
-	fmt.Printf("migrating database...\n")
+	zerolog.Ctx(ctx).Debug().Msg("migrating database...")
 	applied, err := migrate.Exec(sqlConn, "postgres", migrations, migrate.Up)
 
-	fmt.Printf("applied %d migrations\n", applied)
+	zerolog.Ctx(ctx).Info().Msgf("applied %d migrations", applied)
 	return err
 }

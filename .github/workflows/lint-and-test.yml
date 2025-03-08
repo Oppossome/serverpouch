@@ -14,7 +14,21 @@ jobs:
 
       - name: Install gofumpt
         run: go install mvdan.cc/gofumpt@latest
-      
+
+      - name: Verify Generated Files are Up-to-date   
+        run: |
+          make generate
+
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "❌ There are uncommitted changes after running code generation:"
+            git status --porcelain
+            echo
+            echo "Please run 'make generate' locally and commit the changes"
+            exit 1
+          fi
+
+          echo "✅ No uncommitted changes found"
+
       - name: Run Tests
         run: make test
 

@@ -75,7 +75,7 @@ func NewTestDatabase(t *testing.T) (*schema.Queries, *databaseImpl, error) {
 		return nil, nil, err
 	}
 
-	err = schema.Migrate(connStr)
+	err = schema.Migrate(t.Context(), connStr)
 	if err != nil {
 		return nil, nil, err
 	}
