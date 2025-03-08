@@ -81,5 +81,5 @@ func (dsio *DockerServerInstanceOptions) ToJSON() (string, error) {
 }
 
 func (dsio *DockerServerInstanceOptions) NewInstance(ctx context.Context) server.ServerInstance {
-	return NewDockerServerInstance(ctx, dsio)
+	return NewInstance(ctx, dsio)
 }

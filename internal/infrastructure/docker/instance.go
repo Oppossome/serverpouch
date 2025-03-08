@@ -10,101 +10,85 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var _ server.ServerInstance = (*dockerServerInstance)(nil)
-
 type dockerServerInstance struct {
 	ctx           context.Context
 	ctxCancel     context.CancelFunc
 	ctxCancelDone chan struct{}
 
 	client  client.APIClient
+	events  *server.ServerInstanceEvents
 	options *DockerServerInstanceOptions
 
-	actionChan chan *dockerServerInstanceAction
-	events     *server.ServerInstanceEvents
+	actionChan chan chan struct{}
 
 	mu          sync.RWMutex
 	containerID string
 	status      server.ServerInstanceStatus
 }
 
-type dockerServerInstanceAction struct {
-	action server.ServerInstanceAction
-	done   chan struct{}
+func (dsi *dockerServerInstance) Config() server.ServerInstanceConfig {
+	return dsi.options
 }
 
-func (d *dockerServerInstance) Config() server.ServerInstanceConfig {
-	return d.options
+func (dsi *dockerServerInstance) Status() server.ServerInstanceStatus {
+	dsi.mu.RLock()
+	defer dsi.mu.RUnlock()
+
+	return dsi.status
 }
 
-func (d *dockerServerInstance) Action(action server.ServerInstanceAction) {
-	instAction := &dockerServerInstanceAction{
-		action: action,
-		done:   make(chan struct{}),
-	}
+func (dsi *dockerServerInstance) setStatus(status server.ServerInstanceStatus) {
+	dsi.mu.Lock()
+	defer dsi.mu.Unlock()
 
-	select {
-	case <-d.ctx.Done():
-	case d.actionChan <- instAction:
-		<-instAction.done
-	}
+	dsi.status = status
+	dsi.events.Status.Dispatch(status)
 }
 
-func (d *dockerServerInstance) Status() server.ServerInstanceStatus {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	return d.status
+func (dsi *dockerServerInstance) Events() *server.ServerInstanceEvents {
+	return dsi.events
 }
 
-func (d *dockerServerInstance) setStatus(status server.ServerInstanceStatus) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	if d.status == status {
-		return
-	}
-
-	d.status = status
-	d.events.Status.Dispatch(status)
+func (dsi *dockerServerInstance) Close() {
+	dsi.ctxCancel()
+	<-dsi.ctxCancelDone
 }
 
-func (d *dockerServerInstance) Events() *server.ServerInstanceEvents {
-	return d.events
-}
-
-func (d *dockerServerInstance) Close() {
-	d.ctxCancel()
-	<-d.ctxCancelDone
-}
-
-// Creates a new instance of the dockerServerInstance and kicks off its lifecycle.
-func NewDockerServerInstance(ctx context.Context, options *DockerServerInstanceOptions) *dockerServerInstance {
+func NewInstance(ctx context.Context, options *DockerServerInstanceOptions) *dockerServerInstance {
 	ctx, ctxCancel := context.WithCancel(ctx)
+	ctx = zerolog.Ctx(ctx).With().Stringer("id", options.ID()).Logger().WithContext(ctx)
 
-	// Add the instance ID to the context logger.
-	ctx = zerolog.Ctx(ctx).With().
-		Stringer("instance_id", options.InstanceID).Logger().
-		WithContext(ctx)
-
-	serverInstance := &dockerServerInstance{
+	instance := &dockerServerInstance{
 		ctx:           ctx,
 		ctxCancel:     ctxCancel,
 		ctxCancelDone: make(chan struct{}),
 
 		client:  ClientFromContext(ctx),
+		events:  server.NewServerInstanceEvents(),
 		options: options,
 
-		actionChan: make(chan *dockerServerInstanceAction),
-		events:     server.NewServerInstanceEvents(),
+		actionChan: make(chan chan struct{}),
 
 		mu:          sync.RWMutex{},
 		containerID: "",
 		status:      server.ServerInstanceStatusInitializing,
 	}
 
-	go serverInstance.lifecycle()
-	go serverInstance.Action(server.ServerInstanceActionStart)
+	go instance.lifecycle()
+	go func() {
+		containerID, err := instance.lifecycleInit(ctx)
+		if err != nil {
+			zerolog.Ctx(ctx).Err(err).Msg("Failed to initialize instance")
+			instance.setStatus(server.ServerInstanceStatusErrored)
+			return
+		}
 
-	return serverInstance
+		instance.mu.Lock()
+		instance.containerID = containerID
+		instance.mu.Unlock()
+
+		instance.lifecycleInitAttach()
+	}()
+
+	return instance
 }

@@ -19,14 +19,6 @@ const (
 	ServerInstanceStatusErrored      ServerInstanceStatus = "Errored"
 )
 
-type ServerInstanceAction string
-
-const (
-	ServerInstanceActionStart ServerInstanceAction = "Start"
-	ServerInstanceActionStop  ServerInstanceAction = "Stop"
-	ServerInstanceActionKill  ServerInstanceAction = "Kill"
-)
-
 type ServerInstanceType string
 
 const (
@@ -48,8 +40,11 @@ func NewServerInstanceEvents() *ServerInstanceEvents {
 }
 
 type ServerInstance interface {
+	Start() error
+	Stop() error
+	Kill() error
+
 	Config() ServerInstanceConfig
-	Action(action ServerInstanceAction)
 	Status() ServerInstanceStatus
 	Events() *ServerInstanceEvents
 	Close()

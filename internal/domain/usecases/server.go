@@ -27,15 +27,14 @@ func (usc *usecasesImpl) GetServer(ctx context.Context, id uuid.UUID) (server.Se
 func (usc *usecasesImpl) CreateServer(ctx context.Context, cfg server.ServerInstanceConfig) (server.ServerInstance, error) {
 	dbCfg, err := usc.db.CreateServerConfig(ctx, cfg)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Interface("config", cfg).Err(err).Msg("failed to create server config")
-		return nil, errors.Wrap(err, "failed to create server config")
+		return nil, errors.Wrap(err, "failed to write config to db")
 	}
+
+	instance := cfg.NewInstance(ctx)
 
 	usc.srvMu.Lock()
 	defer usc.srvMu.Unlock()
+	usc.srvInstances[dbCfg.ID()] = instance
 
-	srvInstance := dbCfg.NewInstance(ctx)
-	usc.srvInstances[dbCfg.ID()] = srvInstance
-
-	return srvInstance, nil
+	return instance, nil
 }
