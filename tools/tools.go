@@ -14,4 +14,4 @@ import (
 
 //go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc generate
 
-//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config=oapi-codegen.yml ../internal/delivery/http/schema/openapi.yml
+//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config=oapi-codegen.yml ../internal/delivery/http/openapi/openapi.yml

@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"oppossome/serverpouch/internal/delivery/http"
 	"oppossome/serverpouch/internal/domain/usecases"
 	"oppossome/serverpouch/internal/infrastructure/database"
 	"oppossome/serverpouch/internal/infrastructure/database/schema"
@@ -44,6 +45,12 @@ func main() {
 		return
 	}
 
+	httpURL, ok := os.LookupEnv("HTTP_URL")
+	if !ok {
+		zerolog.Ctx(appCtx).Info().Msg("HTTP_URL not found")
+		return
+	}
+
 	// Migrate the database
 	err := schema.Migrate(appCtx, databaseURL)
 	if err != nil {
@@ -69,13 +76,25 @@ func main() {
 
 	appCtx = docker.WithClient(appCtx, dockerClient)
 
-	// Initialize the usecases
-	usecases, err := usecases.New(appCtx)
+	// Initialize the usc
+	usc, err := usecases.New(appCtx)
 	if err != nil {
 		zerolog.Ctx(appCtx).Err(err).Msg("failed to start usecases")
 		return
 	}
-	defer usecases.Close()
+	defer usc.Close()
+
+	appCtx = usecases.WithUsecases(appCtx, usc)
+
+	// Initialize our HTTP handler
+	httpServer, err := http.New(appCtx, httpURL)
+	if err != nil {
+		zerolog.Ctx(appCtx).Err(err).Msg("failed to initialize server")
+		return
+	}
+
+	go httpServer.ListenAndServe()
+	defer httpServer.Shutdown(appCtx)
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)

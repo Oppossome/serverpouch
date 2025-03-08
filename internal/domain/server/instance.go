@@ -11,18 +11,18 @@ import (
 type ServerInstanceStatus string
 
 const (
-	ServerInstanceStatusInitializing ServerInstanceStatus = "Initializing"
-	ServerInstanceStatusIdle         ServerInstanceStatus = "Idle"
-	ServerInstanceStatusStarting     ServerInstanceStatus = "Starting"
-	ServerInstanceStatusRunning      ServerInstanceStatus = "Running"
-	ServerInstanceStatusStopping     ServerInstanceStatus = "Stopping"
-	ServerInstanceStatusErrored      ServerInstanceStatus = "Errored"
+	ServerInstanceStatusInitializing ServerInstanceStatus = "initializing"
+	ServerInstanceStatusIdle         ServerInstanceStatus = "idle"
+	ServerInstanceStatusStarting     ServerInstanceStatus = "starting"
+	ServerInstanceStatusRunning      ServerInstanceStatus = "running"
+	ServerInstanceStatusStopping     ServerInstanceStatus = "stopping"
+	ServerInstanceStatusErrored      ServerInstanceStatus = "errored"
 )
 
 type ServerInstanceType string
 
 const (
-	ServerInstanceTypeDocker ServerInstanceType = "Docker"
+	ServerInstanceTypeDocker ServerInstanceType = "docker"
 )
 
 type ServerInstanceEvents struct {

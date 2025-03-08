@@ -3,9 +3,6 @@ info:
   title: "Serverpouch API"
   description: "This is the API documentation for the Serverpouch API. It's used to generate the API client used by the Serverpouch CLI."
   version: "0.0.0"
-servers:
-  - url: "http://localhost:8080"
-    description: "Local development server"
 
 paths:
   /server:
@@ -99,7 +96,49 @@ components:
           format: "date-time"
           description: "The date and time the resource was last updated"
 
+    ServerConfigDocker:
+      type: "object"
+      required:
+        - type
+        - image
+        - volumes
+        - ports
+        - environment
+      properties:
+        type:
+          type: "string"
+          enum: ["docker"]
+        image:
+          type: "string"
+          description: "The Docker image to use for the server"
+        volumes:
+          type: "array"
+          description: "The volumes to mount on the server"
+          example:
+            - "/var/www/html:/var/www/html"
+            - "/etc/nginx/nginx.conf:/etc/nginx/nginx.conf"
+          items:
+            type: "string"
+        ports:
+          type: "array"
+          description: "The ports to expose on the server"
+          example:
+            - "80:8080/tcp"
+            - "443:8443/tcp"
+          items:
+            type: "string"
+        environment:
+          type: "array"
+          description: "The environment variables to set on the server"
+          example:
+            - "PORT=8080"
+            - "NODE_ENV=production"
+          items:
+            type: "string"
 
+    ServerConfig:
+      oneOf:
+        - $ref: "#/components/schemas/ServerConfigDocker"
 
     NewServer:
       type: "object"
@@ -107,52 +146,25 @@ components:
         - config
       properties:
         config:
-          oneOf:
-            -  type: "object"
-          required:
-            - type
-            - image
-            - volumes
-            - ports
-            - environment
-          properties:
-            type:
-              type: "string"
-              enum: ["docker"]
-            image:
-              type: "string"
-              description: "The Docker image to use for the server"
-            volumes:
-              type: "array"
-              description: "The volumes to mount on the server"
-              example:
-                - "/var/www/html:/var/www/html"
-                - "/etc/nginx/nginx.conf:/etc/nginx/nginx.conf"
-              items:
-                type: "string"
-                pattern: "^/.+:/.*$"
-            ports:
-              type: "array"
-              description: "The ports to expose on the server"
-              example:
-                - "80:8080/tcp"
-                - "443:8443/tcp"
-              items:
-                type: "string"
-                pattern: "^\\d+:\\d+/(tcp|udp)$"
-            environment:
-              type: "array"
-              description: "The environment variables to set on the server"
-              example:
-                - "PORT=8080"
-                - "NODE_ENV=production"
-              items:
-                type: "string"
-                pattern: "^\\w+=.+$"
+          $ref: "#/components/schemas/ServerConfig"
+
 
     Server:
       type: "object"
       allOf:
         - $ref: "#/components/schemas/NewServer"
         - $ref: "#/components/schemas/BaseResource"
+        - type: object
+          required:
+            - status
+          properties:
+            status:
+              type: "string"
+              enum:
+                - "initializing"
+                - "idle"
+                - "starting"
+                - "running"
+                - "stopping"
+                - "errored"
        
