@@ -21,7 +21,7 @@ import (
 type Database interface {
 	GetServerConfig(context.Context, uuid.UUID) (server.ServerInstanceConfig, error)
 	ListServerConfigs(context.Context) ([]server.ServerInstanceConfig, error)
-	UpdateServerConfig(context.Context, server.ServerInstanceConfig) (server.ServerInstanceConfig, error)
+	UpdateServerConfig(context.Context, uuid.UUID, server.ServerInstanceConfig) (server.ServerInstanceConfig, error)
 	CreateServerConfig(context.Context, server.ServerInstanceConfig) (server.ServerInstanceConfig, error)
 }
 
@@ -70,12 +70,12 @@ func NewTestDatabase(t *testing.T) (*schema.Queries, *databaseImpl, error) {
 		}
 	})
 
-	connStr, err := postgresContainer.ConnectionString(t.Context())
+	connStr, err := postgresContainer.ConnectionString(t.Context(), "sslmode=disable")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = schema.Migrate(connStr)
+	err = schema.Migrate(t.Context(), connStr)
 	if err != nil {
 		return nil, nil, err
 	}

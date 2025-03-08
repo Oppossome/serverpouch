@@ -208,6 +208,8 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 	return container.ID, nil
 }
 
+// MARK: lifecycleInitAttach
+
 func (dsi *dockerServerInstance) lifecycleInitAttach() {
 	attach, err := dsi.client.ContainerAttach(dsi.ctx, dsi.containerID, container.AttachOptions{
 		Stream: true,

@@ -22,6 +22,8 @@ func convertToServerConfig(schema *schema.ServerConfig) (server.ServerInstanceCo
 			return nil, errors.Wrap(err, "failed to unmarshal docker server config")
 		}
 
+		dockerOptions.InstanceID = schema.ID
+
 		return &dockerOptions, nil
 	default:
 		return nil, fmt.Errorf("unknown server instance type \"%s\"", schema.Type)
@@ -59,7 +61,7 @@ func (d *databaseImpl) ListServerConfigs(ctx context.Context) ([]server.ServerIn
 	return configs, nil
 }
 
-func (d *databaseImpl) UpdateServerConfig(ctx context.Context, config server.ServerInstanceConfig) (server.ServerInstanceConfig, error) {
+func (d *databaseImpl) UpdateServerConfig(ctx context.Context, id uuid.UUID, config server.ServerInstanceConfig) (server.ServerInstanceConfig, error) {
 	configJSON, err := config.ToJSON()
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to convert config to json")
@@ -67,7 +69,7 @@ func (d *databaseImpl) UpdateServerConfig(ctx context.Context, config server.Ser
 	}
 
 	dbConfig, err := d.queries.UpdateServerConfig(ctx, schema.UpdateServerConfigParams{
-		ID:     config.ID(),
+		ID:     id,
 		Config: []byte(configJSON),
 	})
 	if err != nil {
@@ -86,7 +88,6 @@ func (d *databaseImpl) CreateServerConfig(ctx context.Context, config server.Ser
 	}
 
 	dbConfig, err := d.queries.CreateServerConfig(ctx, schema.CreateServerConfigParams{
-		ID:     config.ID(),
 		Type:   string(config.Type()),
 		Config: []byte(configJSON),
 	})
