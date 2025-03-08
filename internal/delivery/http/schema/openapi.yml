@@ -10,7 +10,7 @@ servers:
 paths:
   /server:
     post:
-      operationId: "CreateServerTest"
+      operationId: "CreateServer"
       summary: "Create a new server"
       requestBody:
         required: true
