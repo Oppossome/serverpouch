@@ -78,7 +78,7 @@ func NewInstance(ctx context.Context, options *DockerServerInstanceOptions) *doc
 	go func() {
 		containerID, err := instance.lifecycleInit(ctx)
 		if err != nil {
-			zerolog.Ctx(ctx).Err(err).Msg("Falied to initialize instance")
+			zerolog.Ctx(ctx).Err(err).Msg("Failed to initialize instance")
 			instance.setStatus(server.ServerInstanceStatusErrored)
 			return
 		}

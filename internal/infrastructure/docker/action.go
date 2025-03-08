@@ -63,10 +63,10 @@ func (dsi *dockerServerInstance) Stop() error {
 
 	dsi.setStatus(server.ServerInstanceStatusStopping)
 
-	err = dsi.client.ContainerStart(dsi.ctx, containerID, container.StartOptions{})
+	err = dsi.client.ContainerStop(dsi.ctx, containerID, container.StopOptions{})
 	if err != nil {
-		zerolog.Ctx(dsi.ctx).Error().Msgf("Unable to start container: %s", err)
-		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to start container: %s", err))
+		zerolog.Ctx(dsi.ctx).Error().Msgf("Unable to stop container: %s", err)
+		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Unable to stop container: %s", err))
 	}
 
 	return nil
