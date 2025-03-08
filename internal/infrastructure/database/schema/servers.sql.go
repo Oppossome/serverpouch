@@ -12,19 +12,18 @@ import (
 )
 
 const createServerConfig = `-- name: CreateServerConfig :one
-INSERT INTO server_configs (id, type, config) 
-VALUES ($1, $2, $3)
+INSERT INTO server_configs (type, config) 
+VALUES ($1, $2)
 RETURNING id, type, config, created_at, updated_at
 `
 
 type CreateServerConfigParams struct {
-	ID     uuid.UUID
 	Type   string
 	Config []byte
 }
 
 func (q *Queries) CreateServerConfig(ctx context.Context, arg CreateServerConfigParams) (ServerConfig, error) {
-	row := q.db.QueryRow(ctx, createServerConfig, arg.ID, arg.Type, arg.Config)
+	row := q.db.QueryRow(ctx, createServerConfig, arg.Type, arg.Config)
 	var i ServerConfig
 	err := row.Scan(
 		&i.ID,

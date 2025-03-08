@@ -17,23 +17,21 @@ func TestGetServerConfig(t *testing.T) {
 		assert.NoError(t, err)
 
 		cfg := &docker.DockerServerInstanceOptions{
-			InstanceID: uuid.Nil,
-			Image:      "hello-world",
+			Image: "hello-world",
 		}
 
 		cfgJSON, err := cfg.ToJSON()
 		assert.NoError(t, err)
 
-		_, err = queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
-			ID:     cfg.ID(),
+		srvCfg, err := queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
 			Type:   string(cfg.Type()),
 			Config: []byte(cfgJSON),
 		})
 		assert.NoError(t, err)
+		cfg.InstanceID = srvCfg.ID // Update cfg to have correct ID
 
-		dbCfg, err := dbRepo.GetServerConfig(t.Context(), cfg.ID())
+		dbCfg, err := dbRepo.GetServerConfig(t.Context(), srvCfg.ID)
 		assert.NoError(t, err)
-
 		assert.Equal(t, cfg, dbCfg)
 	})
 }
@@ -51,16 +49,16 @@ func TestListServerConfigs(t *testing.T) {
 		cfgJSON, err := cfg.ToJSON()
 		assert.NoError(t, err)
 
-		_, err = queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
-			ID:     cfg.ID(),
+		srvCfg, err := queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
 			Type:   string(cfg.Type()),
 			Config: []byte(cfgJSON),
 		})
 		assert.NoError(t, err)
+		cfg.InstanceID = srvCfg.ID
 
 		dbCfgs, err := dbRepo.ListServerConfigs(t.Context())
 		assert.NoError(t, err)
-
+		
 		assert.Equal(t, 1, len(dbCfgs))
 		assert.Equal(t, cfg, dbCfgs[0])
 	})
@@ -72,28 +70,25 @@ func TestUpdateServerConfig(t *testing.T) {
 		assert.NoError(t, err)
 
 		cfg := &docker.DockerServerInstanceOptions{
-			InstanceID: uuid.Nil,
-			Image:      "hello-world",
+			Image: "hello-world",
 		}
 
 		cfgJSON, err := cfg.ToJSON()
 		assert.NoError(t, err)
 
-		_, err = queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
-			ID:     cfg.ID(),
+		srvCfg, err := queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
 			Type:   string(cfg.Type()),
 			Config: []byte(cfgJSON),
 		})
 		assert.NoError(t, err)
-
+		
 		updatedCfg := &docker.DockerServerInstanceOptions{
-			InstanceID: uuid.Nil,
-			Image:      "test-image",
+			InstanceID: srvCfg.ID,
+			Image: "test-image",
 		}
 
-		dbConfig, err := dbRepo.UpdateServerConfig(t.Context(), updatedCfg)
+		dbConfig, err := dbRepo.UpdateServerConfig(t.Context(), srvCfg.ID, updatedCfg)
 		assert.NoError(t, err)
-
 		assert.Equal(t, updatedCfg, dbConfig)
 	})
 }
@@ -104,13 +99,13 @@ func TestCreateServerConfig(t *testing.T) {
 		assert.NoError(t, err)
 
 		cfg := &docker.DockerServerInstanceOptions{
-			InstanceID: uuid.Nil,
-			Image:      "hello-world",
+			Image: "hello-world",
 		}
 
-		dbCfg, err := dbRepo.CreateServerConfig(t.Context(), cfg)
+		srvCfg, err := dbRepo.CreateServerConfig(t.Context(), cfg)
 		assert.NoError(t, err)
 
-		assert.Equal(t, cfg, dbCfg)
+		cfg.InstanceID = srvCfg.ID() // Update cfg to have correct ID
+		assert.Equal(t, cfg, srvCfg)
 	})
 }

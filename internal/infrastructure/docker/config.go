@@ -16,7 +16,7 @@ import (
 var _ server.ServerInstanceConfig = (*DockerServerInstanceOptions)(nil)
 
 type DockerServerInstanceOptions struct {
-	InstanceID       uuid.UUID         `json:"id"`
+	InstanceID       uuid.UUID
 	Image            string            `json:"image"`
 	ContainerVolumes map[string]string `json:"volumes"`
 	ContainerPorts   map[int]string    `json:"ports"`

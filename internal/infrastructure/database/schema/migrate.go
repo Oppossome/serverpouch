@@ -15,7 +15,7 @@ import (
 var dbMigrations embed.FS
 
 func Migrate(ctx context.Context, connStr string) error {
-	sqlConn, err := sql.Open("postgres", connStr+" sslmode=disable")
+	sqlConn, err := sql.Open("postgres", connStr)
 	if err != nil {
 		zerolog.Ctx(ctx).Err(err).Msg("failed to connect to database")
 		return err
