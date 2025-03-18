@@ -14,7 +14,7 @@ import (
 func (hi *httpImpl) CreateServer(ctx context.Context, request openapi.CreateServerRequestObject) (openapi.CreateServerResponseObject, error) {
 	instCfg, err := openapi.OAPIToConfig(request.Body.Config)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode server openapi representation")
+		return nil, errors.Wrap(err, "failed to decode openapi server")
 	}
 
 	inst, err := hi.usecases.CreateServer(ctx, instCfg)
@@ -24,7 +24,7 @@ func (hi *httpImpl) CreateServer(ctx context.Context, request openapi.CreateServ
 
 	oInst, err := openapi.ServerToOAPI(inst)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to encode server openapi representation")
+		return nil, errors.Wrap(err, "failed to encode openapi server")
 	}
 
 	return openapi.CreateServer201JSONResponse{Server: *oInst}, nil
@@ -41,7 +41,7 @@ func (hi *httpImpl) GetServer(ctx context.Context, request openapi.GetServerRequ
 
 	oInst, err := openapi.ServerToOAPI(inst)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to encode server openapi representation")
+		return nil, errors.Wrap(err, "failed to encode openapi server")
 	}
 
 	return openapi.GetServer200JSONResponse{Server: *oInst}, nil
@@ -56,7 +56,7 @@ func (hi *httpImpl) ListServers(ctx context.Context, request openapi.ListServers
 	for idx, inst := range insts {
 		oInst, err := openapi.ServerToOAPI(inst)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to encode server openapi representation")
+			return nil, errors.Wrap(err, "failed to encode openapi server")
 		}
 
 		oInsts[idx] = *oInst
