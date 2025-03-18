@@ -10,6 +10,42 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestConfigToOAPI(t *testing.T) {
+	dockerTests := []struct {
+		name   string
+		config docker.DockerServerInstanceOptions
+		want   openapi.ServerConfigDocker
+	}{
+		{
+			name: "Ok",
+			config: docker.DockerServerInstanceOptions{
+				Image:            "test",
+				ContainerEnv:     []string{"PORT=8080"},
+				ContainerPorts:   map[int]string{80: "8080/tcp", 81: "8081/udp"},
+				ContainerVolumes: map[string]string{"/host": "/container"},
+			},
+			want: openapi.ServerConfigDocker{
+				Environment: []string{"PORT=8080"},
+				Image:       "test",
+				Ports:       []string{"80:8080/tcp", "81:8081/udp"},
+				Type:        openapi.Docker,
+				Volumes:     []string{"/host:/container"},
+			},
+		},
+	}
+
+	for _, tt := range dockerTests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := openapi.ConfigToOAPI(&tt.config)
+			assert.NoError(t, err)
+
+			dCfg, err := cfg.AsServerConfigDocker()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, dCfg)
+		})
+	}
+}
+
 func TestOAPIToConfig(t *testing.T) {
 	dockerTests := []struct {
 		name      string

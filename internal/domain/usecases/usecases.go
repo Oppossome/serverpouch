@@ -13,6 +13,7 @@ import (
 )
 
 type Usecases interface {
+	ListServers(context.Context) []server.ServerInstance
 	GetServer(context.Context, uuid.UUID) (server.ServerInstance, error)
 	CreateServer(context.Context, server.ServerInstanceConfig) (server.ServerInstance, error)
 	Close()

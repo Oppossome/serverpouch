@@ -6,7 +6,6 @@ fmt:
 
 generate:
 	go generate ./tools/tools.go
-	$(MAKE) fmt
 
 test:
 	go test ./... -timeout 30s

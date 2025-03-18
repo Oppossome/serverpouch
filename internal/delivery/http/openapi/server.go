@@ -11,14 +11,31 @@ import (
 	"oppossome/serverpouch/internal/infrastructure/docker"
 )
 
+// MARK: ServerToOAPI
+
+func ServerToOAPI(server server.ServerInstance) (*Server, error) {
+	cfg, err := ConfigToOAPI(server.Config())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert config to OAPI")
+	}
+
+	srv := &Server{
+		Config: *cfg,
+		Id:     server.Config().ID(),
+		Status: ServerStatus(server.Status()),
+	}
+
+	return srv, nil
+}
+
 // MARK: ConfigToOAPI
 
-func ConfigToOAPI(config server.ServerInstanceConfig) (ServerConfig, error) {
+func ConfigToOAPI(config server.ServerInstanceConfig) (*ServerConfig, error) {
 	switch config.Type() {
 	case server.ServerInstanceTypeDocker:
 		config, ok := config.(*docker.DockerServerInstanceOptions)
 		if !ok {
-			return ServerConfig{}, errors.New("unable to convert docker config")
+			return nil, errors.New("unable to convert docker config")
 		}
 
 		dSrvCfg := ServerConfigDocker{
@@ -39,16 +56,16 @@ func ConfigToOAPI(config server.ServerInstanceConfig) (ServerConfig, error) {
 			dSrvCfg.Volumes = append(dSrvCfg.Volumes, volumeStr)
 		}
 
-		srvCfg := ServerConfig{}
+		srvCfg := &ServerConfig{}
 		err := srvCfg.FromServerConfigDocker(dSrvCfg)
 		if err != nil {
-			return ServerConfig{}, err
+			return nil, err
 		}
 
 		return srvCfg, nil
 
 	default:
-		return ServerConfig{}, fmt.Errorf("unknown config type %s", config.Type())
+		return nil, fmt.Errorf("unknown config type %s", config.Type())
 	}
 }
 

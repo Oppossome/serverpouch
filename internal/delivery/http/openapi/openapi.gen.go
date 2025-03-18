@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -40,14 +39,8 @@ const (
 
 // BaseResource defines model for BaseResource.
 type BaseResource struct {
-	// CreatedAt The date and time the resource was created
-	CreatedAt time.Time `json:"createdAt"`
-
 	// Id The unique identifier for the resource
 	Id openapi_types.UUID `json:"id"`
-
-	// UpdatedAt The date and time the resource was last updated
-	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // NewServer defines model for NewServer.
@@ -59,15 +52,9 @@ type NewServer struct {
 type Server struct {
 	Config ServerConfig `json:"config"`
 
-	// CreatedAt The date and time the resource was created
-	CreatedAt time.Time `json:"createdAt"`
-
 	// Id The unique identifier for the resource
 	Id     openapi_types.UUID `json:"id"`
 	Status ServerStatus       `json:"status"`
-
-	// UpdatedAt The date and time the resource was last updated
-	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // ServerStatus defines model for Server.Status.
@@ -96,6 +83,16 @@ type ServerConfigDocker struct {
 
 // ServerConfigDockerType defines model for ServerConfigDocker.Type.
 type ServerConfigDockerType string
+
+// ServerResponse defines model for ServerResponse.
+type ServerResponse struct {
+	Server Server `json:"server"`
+}
+
+// ServersResponse defines model for ServersResponse.
+type ServersResponse struct {
+	Servers []Server `json:"servers"`
+}
 
 // CreateServerJSONRequestBody defines body for CreateServer for application/json ContentType.
 type CreateServerJSONRequestBody = NewServer
@@ -367,7 +364,7 @@ type CreateServerResponseObject interface {
 	VisitCreateServerResponse(w http.ResponseWriter) error
 }
 
-type CreateServer201JSONResponse Server
+type CreateServer201JSONResponse ServerResponse
 
 func (response CreateServer201JSONResponse) VisitCreateServerResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -400,7 +397,7 @@ type GetServerResponseObject interface {
 	VisitGetServerResponse(w http.ResponseWriter) error
 }
 
-type GetServer200JSONResponse Server
+type GetServer200JSONResponse ServerResponse
 
 func (response GetServer200JSONResponse) VisitGetServerResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -432,9 +429,7 @@ type ListServersResponseObject interface {
 	VisitListServersResponse(w http.ResponseWriter) error
 }
 
-type ListServers200JSONResponse struct {
-	Servers *[]Server `json:"servers,omitempty"`
-}
+type ListServers200JSONResponse ServersResponse
 
 func (response ListServers200JSONResponse) VisitListServersResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -577,22 +572,22 @@ func (sh *strictHandler) ListServers(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"Z+wIwva/AAAA///dh3reCQwAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

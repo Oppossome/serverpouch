@@ -21,7 +21,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Server"
+                $ref: "#/components/schemas/ServerResponse"
 
         '400':
           description: "The request was invalid"
@@ -46,8 +46,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Server"
-
+                $ref: "#/components/schemas/ServerResponse"
+                    
         '404':
           description: "The server was not found"
         
@@ -64,12 +64,8 @@ paths:
           content:
             application/json:
               schema:
-                type: "object"
-                properties:
-                  servers:
-                    type: "array"
-                    items:
-                      $ref: "#/components/schemas/Server"
+                $ref: "#/components/schemas/ServersResponse"
+                      
 
         '500':
           description: "An internal server error occurred"
@@ -80,21 +76,19 @@ components:
       type: "object"
       required:
         - id
-        - createdAt
-        - updatedAt
       properties:
         id:
           type: "string"
           format: "uuid"
           description: "The unique identifier for the resource"
-        createdAt:
-          type: "string"
-          format: "date-time"
-          description: "The date and time the resource was created"
-        updatedAt:
-          type: "string"
-          format: "date-time"
-          description: "The date and time the resource was last updated"
+        # createdAt:
+        #   type: "string"
+        #   format: "date-time"
+        #   description: "The date and time the resource was created"
+        # updatedAt:
+        #   type: "string"
+        #   format: "date-time"
+        #   description: "The date and time the resource was last updated"
 
     ServerConfigDocker:
       type: "object"
@@ -148,7 +142,6 @@ components:
         config:
           $ref: "#/components/schemas/ServerConfig"
 
-
     Server:
       type: "object"
       allOf:
@@ -168,3 +161,21 @@ components:
                 - "stopping"
                 - "errored"
        
+    ServerResponse:
+      type: "object"
+      required:
+       - server
+      properties:
+        server:
+          $ref: "#/components/schemas/Server"
+
+    ServersResponse:
+      type: "object"
+      required:
+        - servers
+      properties:
+        servers:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Server"
+         

@@ -11,17 +11,29 @@ import (
 	"github.com/rs/zerolog"
 )
 
+func (usc *usecasesImpl) ListServers(ctx context.Context) []server.ServerInstance {
+	usc.srvMu.RLock()
+	defer usc.srvMu.RUnlock()
+
+	insts := make([]server.ServerInstance, 0, len(usc.srvInstances))
+	for _, instance := range usc.srvInstances {
+		insts = append(insts, instance)
+	}
+
+	return insts
+}
+
 func (usc *usecasesImpl) GetServer(ctx context.Context, id uuid.UUID) (server.ServerInstance, error) {
 	usc.srvMu.RLock()
 	defer usc.srvMu.RUnlock()
 
-	instance, ok := usc.srvInstances[id]
+	inst, ok := usc.srvInstances[id]
 	if !ok {
 		zerolog.Ctx(ctx).Error().Str("id", id.String()).Msg("instance not found")
 		return nil, fmt.Errorf("instance of ID \"%s\" not found", id.String())
 	}
 
-	return instance, nil
+	return inst, nil
 }
 
 func (usc *usecasesImpl) CreateServer(ctx context.Context, cfg server.ServerInstanceConfig) (server.ServerInstance, error) {
@@ -30,11 +42,11 @@ func (usc *usecasesImpl) CreateServer(ctx context.Context, cfg server.ServerInst
 		return nil, errors.Wrap(err, "failed to write config to db")
 	}
 
-	instance := cfg.NewInstance(ctx)
+	inst := dbCfg.NewInstance(ctx)
 
 	usc.srvMu.Lock()
 	defer usc.srvMu.Unlock()
-	usc.srvInstances[dbCfg.ID()] = instance
+	usc.srvInstances[dbCfg.ID()] = inst
 
-	return instance, nil
+	return inst, nil
 }

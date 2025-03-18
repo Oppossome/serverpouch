@@ -58,7 +58,7 @@ func TestListServerConfigs(t *testing.T) {
 
 		dbCfgs, err := dbRepo.ListServerConfigs(t.Context())
 		assert.NoError(t, err)
-		
+
 		assert.Equal(t, 1, len(dbCfgs))
 		assert.Equal(t, cfg, dbCfgs[0])
 	})
@@ -81,10 +81,10 @@ func TestUpdateServerConfig(t *testing.T) {
 			Config: []byte(cfgJSON),
 		})
 		assert.NoError(t, err)
-		
+
 		updatedCfg := &docker.DockerServerInstanceOptions{
 			InstanceID: srvCfg.ID,
-			Image: "test-image",
+			Image:      "test-image",
 		}
 
 		dbConfig, err := dbRepo.UpdateServerConfig(t.Context(), srvCfg.ID, updatedCfg)
