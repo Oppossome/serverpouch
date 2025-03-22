@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type ServerConfig struct {
+type Server struct {
 	ID        uuid.UUID
 	Type      string
 	Config    []byte

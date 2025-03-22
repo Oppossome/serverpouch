@@ -49,7 +49,7 @@ func (usc *usecasesImpl) init(ctx context.Context) error {
 	usc.srvMu.Lock()
 	defer usc.srvMu.Unlock()
 
-	srvConfigs, err := usc.db.ListServerConfigs(ctx)
+	srvConfigs, err := usc.db.ListServers(ctx)
 	if err != nil {
 		return errors.Wrap(err, "Failed to retrieve configs")
 	}

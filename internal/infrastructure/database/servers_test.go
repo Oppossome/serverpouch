@@ -11,10 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetServerConfig(t *testing.T) {
+func TestGetServer(t *testing.T) {
 	t.Run("Ok", func(t *testing.T) {
-		queries, dbRepo, err := database.NewTestDatabase(t)
-		assert.NoError(t, err)
+		queries, dbRepo := database.NewTestDatabase(t)
 
 		cfg := &docker.DockerServerInstanceOptions{
 			Image: "hello-world",
@@ -23,23 +22,22 @@ func TestGetServerConfig(t *testing.T) {
 		cfgJSON, err := cfg.ToJSON()
 		assert.NoError(t, err)
 
-		srvCfg, err := queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
+		srvCfg, err := queries.CreateServer(t.Context(), schema.CreateServerParams{
 			Type:   string(cfg.Type()),
 			Config: []byte(cfgJSON),
 		})
 		assert.NoError(t, err)
 		cfg.InstanceID = srvCfg.ID // Update cfg to have correct ID
 
-		dbCfg, err := dbRepo.GetServerConfig(t.Context(), srvCfg.ID)
+		dbCfg, err := dbRepo.GetServer(t.Context(), srvCfg.ID)
 		assert.NoError(t, err)
 		assert.Equal(t, cfg, dbCfg)
 	})
 }
 
-func TestListServerConfigs(t *testing.T) {
+func TestListServers(t *testing.T) {
 	t.Run("Ok", func(t *testing.T) {
-		queries, dbRepo, err := database.NewTestDatabase(t)
-		assert.NoError(t, err)
+		queries, dbRepo := database.NewTestDatabase(t)
 
 		cfg := &docker.DockerServerInstanceOptions{
 			InstanceID: uuid.Nil,
@@ -49,14 +47,14 @@ func TestListServerConfigs(t *testing.T) {
 		cfgJSON, err := cfg.ToJSON()
 		assert.NoError(t, err)
 
-		srvCfg, err := queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
+		srvCfg, err := queries.CreateServer(t.Context(), schema.CreateServerParams{
 			Type:   string(cfg.Type()),
 			Config: []byte(cfgJSON),
 		})
 		assert.NoError(t, err)
 		cfg.InstanceID = srvCfg.ID
 
-		dbCfgs, err := dbRepo.ListServerConfigs(t.Context())
+		dbCfgs, err := dbRepo.ListServers(t.Context())
 		assert.NoError(t, err)
 
 		assert.Equal(t, 1, len(dbCfgs))
@@ -64,10 +62,9 @@ func TestListServerConfigs(t *testing.T) {
 	})
 }
 
-func TestUpdateServerConfig(t *testing.T) {
+func TestUpdateServer(t *testing.T) {
 	t.Run("Ok", func(t *testing.T) {
-		queries, dbRepo, err := database.NewTestDatabase(t)
-		assert.NoError(t, err)
+		queries, dbRepo := database.NewTestDatabase(t)
 
 		cfg := &docker.DockerServerInstanceOptions{
 			Image: "hello-world",
@@ -76,7 +73,7 @@ func TestUpdateServerConfig(t *testing.T) {
 		cfgJSON, err := cfg.ToJSON()
 		assert.NoError(t, err)
 
-		srvCfg, err := queries.CreateServerConfig(t.Context(), schema.CreateServerConfigParams{
+		srvCfg, err := queries.CreateServer(t.Context(), schema.CreateServerParams{
 			Type:   string(cfg.Type()),
 			Config: []byte(cfgJSON),
 		})
@@ -87,22 +84,21 @@ func TestUpdateServerConfig(t *testing.T) {
 			Image:      "test-image",
 		}
 
-		dbConfig, err := dbRepo.UpdateServerConfig(t.Context(), srvCfg.ID, updatedCfg)
+		dbConfig, err := dbRepo.UpdateServer(t.Context(), srvCfg.ID, updatedCfg)
 		assert.NoError(t, err)
 		assert.Equal(t, updatedCfg, dbConfig)
 	})
 }
 
-func TestCreateServerConfig(t *testing.T) {
+func TestCreateServer(t *testing.T) {
 	t.Run("Ok", func(t *testing.T) {
-		_, dbRepo, err := database.NewTestDatabase(t)
-		assert.NoError(t, err)
+		_, dbRepo := database.NewTestDatabase(t)
 
 		cfg := &docker.DockerServerInstanceOptions{
 			Image: "hello-world",
 		}
 
-		srvCfg, err := dbRepo.CreateServerConfig(t.Context(), cfg)
+		srvCfg, err := dbRepo.CreateServer(t.Context(), cfg)
 		assert.NoError(t, err)
 
 		cfg.InstanceID = srvCfg.ID() // Update cfg to have correct ID

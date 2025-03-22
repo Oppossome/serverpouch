@@ -135,36 +135,36 @@ func (t *ServerConfig) UnmarshalJSON(b []byte) error {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List all servers
+	// (GET /api/servers)
+	ListServers(w http.ResponseWriter, r *http.Request)
 	// Create a new server
-	// (POST /server)
+	// (POST /api/servers)
 	CreateServer(w http.ResponseWriter, r *http.Request)
 	// Get a server by ID
-	// (GET /server/{id})
+	// (GET /api/servers/{id})
 	GetServer(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
-	// List all servers
-	// (GET /servers)
-	ListServers(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
 
+// List all servers
+// (GET /api/servers)
+func (_ Unimplemented) ListServers(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Create a new server
-// (POST /server)
+// (POST /api/servers)
 func (_ Unimplemented) CreateServer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get a server by ID
-// (GET /server/{id})
+// (GET /api/servers/{id})
 func (_ Unimplemented) GetServer(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// List all servers
-// (GET /servers)
-func (_ Unimplemented) ListServers(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -176,6 +176,20 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListServers operation middleware
+func (siw *ServerInterfaceWrapper) ListServers(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListServers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // CreateServer operation middleware
 func (siw *ServerInterfaceWrapper) CreateServer(w http.ResponseWriter, r *http.Request) {
@@ -207,20 +221,6 @@ func (siw *ServerInterfaceWrapper) GetServer(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetServer(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListServers operation middleware
-func (siw *ServerInterfaceWrapper) ListServers(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListServers(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -344,16 +344,40 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/server", wrapper.CreateServer)
+		r.Get(options.BaseURL+"/api/servers", wrapper.ListServers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/server/{id}", wrapper.GetServer)
+		r.Post(options.BaseURL+"/api/servers", wrapper.CreateServer)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/servers", wrapper.ListServers)
+		r.Get(options.BaseURL+"/api/servers/{id}", wrapper.GetServer)
 	})
 
 	return r
+}
+
+type ListServersRequestObject struct {
+}
+
+type ListServersResponseObject interface {
+	VisitListServersResponse(w http.ResponseWriter) error
+}
+
+type ListServers200JSONResponse ServersResponse
+
+func (response ListServers200JSONResponse) VisitListServersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListServers500Response struct {
+}
+
+func (response ListServers500Response) VisitListServersResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
 }
 
 type CreateServerRequestObject struct {
@@ -422,41 +446,17 @@ func (response GetServer500Response) VisitGetServerResponse(w http.ResponseWrite
 	return nil
 }
 
-type ListServersRequestObject struct {
-}
-
-type ListServersResponseObject interface {
-	VisitListServersResponse(w http.ResponseWriter) error
-}
-
-type ListServers200JSONResponse ServersResponse
-
-func (response ListServers200JSONResponse) VisitListServersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListServers500Response struct {
-}
-
-func (response ListServers500Response) VisitListServersResponse(w http.ResponseWriter) error {
-	w.WriteHeader(500)
-	return nil
-}
-
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List all servers
+	// (GET /api/servers)
+	ListServers(ctx context.Context, request ListServersRequestObject) (ListServersResponseObject, error)
 	// Create a new server
-	// (POST /server)
+	// (POST /api/servers)
 	CreateServer(ctx context.Context, request CreateServerRequestObject) (CreateServerResponseObject, error)
 	// Get a server by ID
-	// (GET /server/{id})
+	// (GET /api/servers/{id})
 	GetServer(ctx context.Context, request GetServerRequestObject) (GetServerResponseObject, error)
-	// List all servers
-	// (GET /servers)
-	ListServers(ctx context.Context, request ListServersRequestObject) (ListServersResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -486,6 +486,30 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListServers operation middleware
+func (sh *strictHandler) ListServers(w http.ResponseWriter, r *http.Request) {
+	var request ListServersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListServers(ctx, request.(ListServersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListServers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListServersResponseObject); ok {
+		if err := validResponse.VisitListServersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // CreateServer operation middleware
@@ -545,49 +569,25 @@ func (sh *strictHandler) GetServer(w http.ResponseWriter, r *http.Request, id op
 	}
 }
 
-// ListServers operation middleware
-func (sh *strictHandler) ListServers(w http.ResponseWriter, r *http.Request) {
-	var request ListServersRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListServers(ctx, request.(ListServersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListServers")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListServersResponseObject); ok {
-		if err := validResponse.VisitListServersResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8RW22ojRxD9laYSyMugmcQKmIF92LWXRbDYi3fJixGh3VMj9Wamu7cvkhWjfw/Vc9Fl",
-	"RpYNDvsi+lJddeqcqho9gdC10QqVd5A/gRNLrHlcfuAO79DpYAXS3lht0HqJ8VYW9FugE1YaL7WCHL4t",
-	"kQUlfwRkskDlZSnRslJb5pfIbOcrgVLbmnvIIQRZQAJ+YxBycN5KtYDtNgGLP4K0WEB+T6HmvY1++I7C",
-	"wzaBG1x/RbtCOwQntCrlgla/Wiwhh1/SXZppm2PavL5qbI+Dti7GAu+i8qq6LSG/fz7ODug2ed7ygHIy",
-	"PkzLee5DXKEKdaRGSS95Jf8l3hKQRUX0Os+tb05sUKpZOa+NaZZoraY05+eYbwMOSThNy1VPvVb4AnL2",
-	"X11r8Q+xND/y1p4PZEa1klarGpUfL8Y9A7biVvKHCh3zmjn0TKtYlq6RJgF85LWpkPL+cnv37d1ldplB",
-	"Aje31x///njz1ztjdRFE9D5PQHqsI4gjBntiuLV8Q3tZ8wWO42sSY9GCYAWHfbv0uAYBjLZNsw4dxivy",
-	"hI9GO3wux8sspwxTLwwkMJ1e5JfT6UXcviq9Zr8ryaIRaz4CfKWrUOMJ6O0lga91UM/qk664Tdfrdbr0",
-	"dZUf7CCBFL1I1UKqx+Z3Qr2cj56+JtWj3oiXnbq73Dp5koPqPN0vd+iMVm5kwrp+zJzvn2HnNsen47pz",
-	"gZsp33HzEghnCOvcDjGRpVSlHisM6Zh0sRDef5mxQotAhHK671ulAWB0EEuymrCZ/81RMxVUTQtUaLnH",
-	"3omoJA2EeP+wGXi4+jybUNtJT8UGR85JarSugZdNsklGiWuDihsJOVzEowQM98vIXLrT0WgXBxWRHTOY",
-	"FZDDlUXu8WtX5kQZOv9BF5v2U+bb+caNqaSID9PvjgB03+tzCu19gQ5V8TZgPGhqIQL+I/v9zQIf1XiM",
-	"Pmz9hiG25o6JSEbBXBACnStDVcUpM82y8bHR0hUfS7XilSzI/s8x+/eKSeXRKl51MeOnkGkhgiVCCJ8L",
-	"dc3tpleGcaZw3c0hsmglTZ9ksaUoCxyR9RP6XlPDLa/Rx6a6fwJJYKhAIAHFa6qy+DfoUJdkj+Nzf5jm",
-	"Aw2zn6dhqYMqGtGm46LtGSvtdw/eRLVP6BnvLB82bHa9L5o7Kdhn6VrFHPzvdLqX8enYGi2+MUGUKONV",
-	"Z+wIwva/AAAA///dh3reCQwAAA==",
+	"H4sIAAAAAAAC/7RWW2vjRhT+K8NpoS/CchsXgmAfdpNlMSzJkg19CaZMRsf2bKWZ2bnYcYP/ezkzknyR",
+	"HCeQvpi5nDmX7zvfkZ9B6Npohco7KJ7BiSXWPC4/cYd36HSwAmlvrDZovcR4K0v6LdEJK42XWkEB90tk",
+	"QcmfAZksUXk5l2jZXFvml8hs6yuDubY191BACLKEDPzGIBTgvJVqAdttBhZ/BmmxhOKBQs06G/34A4WH",
+	"bQY3uP6OdoW2n5zQai4XtPrV4hwK+CXflZk3Nebp9VWyPQ7auBgKvIvKq+p2DsXDy3F2iW6zly0PICfj",
+	"w7Kc5z7EFapQR2iU9JJX8l/CLQNZVgSv89z6dGKDUmnlvDYmLdFaTWXOziHfBOyDcBqWqw56rfAV4Oy/",
+	"utbiH0JpduStOe/RjGolrVY1Kj/cjHsGbMWt5I8VOuY1c+iZVrEtXaImA3zitamQ6v52e3f/4XJ8OYYM",
+	"bm6vP//9+eavD8bqMojofZaB9FjHJI4Q7IDh1vIN7WXNFzicXyqMRQtKKzjs5NLl1QtgtE1i7TuMV+QJ",
+	"n4x2+FKNl+OCKsy9MJDBZHJRXE4mF3H7pvLSfteSZSJrNpD4SlehxhOpN5eUfK2DepGffMVtvl6v86Wv",
+	"q+JgBxnk6EWuFlI9pd8RabkYPH1LqUfaiJctu7vaWnqyg+48rZc7dEYrNzBhXTdmzuunr9x0fDquOxc4",
+	"TfkWm9ekcAaw1m0/J7KUaq6HGkM6Jl1shI/fpqzUIhCgnO47qaQEjA5iSVYjNvW/ORJTSd20QIWWe+yc",
+	"iErSQIj3j5ueh6uv0xHJTnpqNjhyTlSjdSm98Wg8GlPh2qDiRkIBF/EoA8P9MiKXcyPzPUgXGIcVAR6r",
+	"mJZQwFfpfMMLDe2Gmmj/x3jcfNJ8M+e4MZUU8XH+w1Ei7Xf7dUztqI/I96XYZMvWaGkeBVVSjX+mRA7N",
+	"PyomlUereNU8Y/HrwrQQwRLzFMKFuuZ20xTKeNUauzTP3AAkVxa5x++t+qmT0PlPuty8Gxx7H+bDZvU2",
+	"4LbHw+/vzMPraGBr7piIYJTMBSHQuXmoqjh8J0Oc3Mc/WxGu+FiqFa/k+3GYmGGcKVy345ks9js9f5bl",
+	"9mS7f0HfEWu45TX6qI6HZ5CUEYkHMlC8JgXGv4iH5GR7QJ/7Mzn73wX1BiI7NU3Gk2Hm9oyV9u8svy/o",
+	"GW8tHzdsek05b/8LAAD//26GyeMGDAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

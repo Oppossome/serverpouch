@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"oppossome/serverpouch/internal/common/test/mocks/github.com/docker/docker/client"
 	"oppossome/serverpouch/internal/domain/server"
-	"oppossome/serverpouch/mocks/github.com/docker/docker/client"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"

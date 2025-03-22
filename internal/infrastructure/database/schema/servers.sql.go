@@ -11,20 +11,20 @@ import (
 	"github.com/google/uuid"
 )
 
-const createServerConfig = `-- name: CreateServerConfig :one
-INSERT INTO server_configs (type, config) 
+const createServer = `-- name: CreateServer :one
+INSERT INTO servers (type, config) 
 VALUES ($1, $2)
 RETURNING id, type, config, created_at, updated_at
 `
 
-type CreateServerConfigParams struct {
+type CreateServerParams struct {
 	Type   string
 	Config []byte
 }
 
-func (q *Queries) CreateServerConfig(ctx context.Context, arg CreateServerConfigParams) (ServerConfig, error) {
-	row := q.db.QueryRow(ctx, createServerConfig, arg.Type, arg.Config)
-	var i ServerConfig
+func (q *Queries) CreateServer(ctx context.Context, arg CreateServerParams) (Server, error) {
+	row := q.db.QueryRow(ctx, createServer, arg.Type, arg.Config)
+	var i Server
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
@@ -35,14 +35,14 @@ func (q *Queries) CreateServerConfig(ctx context.Context, arg CreateServerConfig
 	return i, err
 }
 
-const getServerConfig = `-- name: GetServerConfig :one
-SELECT id, type, config, created_at, updated_at FROM server_configs
+const getServer = `-- name: GetServer :one
+SELECT id, type, config, created_at, updated_at FROM servers
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetServerConfig(ctx context.Context, id uuid.UUID) (ServerConfig, error) {
-	row := q.db.QueryRow(ctx, getServerConfig, id)
-	var i ServerConfig
+func (q *Queries) GetServer(ctx context.Context, id uuid.UUID) (Server, error) {
+	row := q.db.QueryRow(ctx, getServer, id)
+	var i Server
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
@@ -53,20 +53,20 @@ func (q *Queries) GetServerConfig(ctx context.Context, id uuid.UUID) (ServerConf
 	return i, err
 }
 
-const getServerConfigs = `-- name: GetServerConfigs :many
-SELECT id, type, config, created_at, updated_at FROM server_configs
+const getServers = `-- name: GetServers :many
+SELECT id, type, config, created_at, updated_at FROM servers
 ORDER BY created_at DESC
 `
 
-func (q *Queries) GetServerConfigs(ctx context.Context) ([]ServerConfig, error) {
-	rows, err := q.db.Query(ctx, getServerConfigs)
+func (q *Queries) GetServers(ctx context.Context) ([]Server, error) {
+	rows, err := q.db.Query(ctx, getServers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ServerConfig
+	var items []Server
 	for rows.Next() {
-		var i ServerConfig
+		var i Server
 		if err := rows.Scan(
 			&i.ID,
 			&i.Type,
@@ -84,22 +84,22 @@ func (q *Queries) GetServerConfigs(ctx context.Context) ([]ServerConfig, error) 
 	return items, nil
 }
 
-const updateServerConfig = `-- name: UpdateServerConfig :one
-UPDATE server_configs SET 
+const updateServer = `-- name: UpdateServer :one
+UPDATE servers SET 
   config = $2, 
   updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 
 RETURNING id, type, config, created_at, updated_at
 `
 
-type UpdateServerConfigParams struct {
+type UpdateServerParams struct {
 	ID     uuid.UUID
 	Config []byte
 }
 
-func (q *Queries) UpdateServerConfig(ctx context.Context, arg UpdateServerConfigParams) (ServerConfig, error) {
-	row := q.db.QueryRow(ctx, updateServerConfig, arg.ID, arg.Config)
-	var i ServerConfig
+func (q *Queries) UpdateServer(ctx context.Context, arg UpdateServerParams) (Server, error) {
+	row := q.db.QueryRow(ctx, updateServer, arg.ID, arg.Config)
+	var i Server
 	err := row.Scan(
 		&i.ID,
 		&i.Type,

@@ -14,13 +14,13 @@ import (
 // MARK: ServerToOAPI
 
 func ServerToOAPI(server server.ServerInstance) (*Server, error) {
-	cfg, err := ConfigToOAPI(server.Config())
+	oCfg, err := ConfigToOAPI(server.Config())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert config to OAPI")
 	}
 
 	srv := &Server{
-		Config: *cfg,
+		Config: *oCfg,
 		Id:     server.Config().ID(),
 		Status: ServerStatus(server.Status()),
 	}

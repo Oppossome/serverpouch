@@ -10,14 +10,15 @@ import (
 )
 
 // Create a new server
-// (POST /server)
+// (POST /api/servers)
 func (hi *httpImpl) CreateServer(ctx context.Context, request openapi.CreateServerRequestObject) (openapi.CreateServerResponseObject, error) {
 	instCfg, err := openapi.OAPIToConfig(request.Body.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to decode openapi server")
 	}
 
-	inst, err := hi.usecases.CreateServer(ctx, instCfg)
+	// Utilize the application context so it isn't cancelled when the request ends.
+	inst, err := hi.usecases.CreateServer(hi.appCtx, instCfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create server")
 	}
@@ -31,7 +32,7 @@ func (hi *httpImpl) CreateServer(ctx context.Context, request openapi.CreateServ
 }
 
 // Get a server by ID
-// (GET /server/{id})
+// (GET /api/servers/{id})
 func (hi *httpImpl) GetServer(ctx context.Context, request openapi.GetServerRequestObject) (openapi.GetServerResponseObject, error) {
 	inst, err := hi.usecases.GetServer(ctx, request.Id)
 	if err != nil {
@@ -48,7 +49,7 @@ func (hi *httpImpl) GetServer(ctx context.Context, request openapi.GetServerRequ
 }
 
 // List all servers
-// (GET /servers)
+// (GET /api/servers)
 func (hi *httpImpl) ListServers(ctx context.Context, request openapi.ListServersRequestObject) (openapi.ListServersResponseObject, error) {
 	insts := hi.usecases.ListServers(ctx)
 
