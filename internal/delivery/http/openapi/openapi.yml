@@ -5,7 +5,22 @@ info:
   version: "0.0.0"
 
 paths:
-  /server:
+  /api/servers:
+    get:
+      operationId: "ListServers"
+      summary: "List all servers"
+      responses:
+        '200':
+          description: "The servers were found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServersResponse"
+                      
+
+        '500':
+          description: "An internal server error occurred"
+    
     post:
       operationId: "CreateServer"
       summary: "Create a new server"
@@ -29,7 +44,7 @@ paths:
         '500':
           description: "An internal server error occurred"
   
-  /server/{id}:
+  /api/servers/{id}:
     get:
       operationId: "GetServer"
       summary: "Get a server by ID"
@@ -54,21 +69,6 @@ paths:
         '500':
           description: "An internal server error occurred"
 
-  /servers:
-    get:
-      operationId: "ListServers"
-      summary: "List all servers"
-      responses:
-        '200':
-          description: "The servers were found"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ServersResponse"
-                      
-
-        '500':
-          description: "An internal server error occurred"
 
 components:
   schemas:

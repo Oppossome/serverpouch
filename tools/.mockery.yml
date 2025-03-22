@@ -1,6 +1,12 @@
 with-expecter: true
-dir: "../mocks/{{.PackagePath}}"
+dir: '../internal/common/test/mocks/{{ trimPrefix .PackagePath "oppossome/serverpouch/internal"}}'
 packages:
   github.com/docker/docker/client:
     interfaces:
       APIClient:
+  oppossome/serverpouch/internal/domain/server:
+    interfaces:
+      ServerInstance:
+  oppossome/serverpouch/internal/domain/usecases:
+    interfaces:
+      Usecases:

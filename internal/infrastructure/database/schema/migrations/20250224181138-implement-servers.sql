@@ -1,7 +1,7 @@
 
 -- +migrate Up
 
-CREATE TABLE server_configs (
+CREATE TABLE servers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type TEXT NOT NULL,
   config JSONB NOT NULL,
@@ -11,4 +11,4 @@ CREATE TABLE server_configs (
 
 -- +migrate Down
 
-DROP TABLE server_configs;
+DROP TABLE servers;

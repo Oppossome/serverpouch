@@ -163,13 +163,14 @@ func (dsi *dockerServerInstance) lifecycleInit(ctx context.Context) (string, err
 	if !foundImage {
 		zerolog.Ctx(ctx).Info().Msgf("Pulling image \"%s\"", dsi.options.Image)
 		dsi.events.TerminalOut.Dispatch(fmt.Sprintf("Pulling image \"%s\"", dsi.options.Image))
+
 		reader, err := dsi.client.ImagePull(ctx, dsi.options.Image, image.PullOptions{})
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Msgf("Failed to pull image \"%s\"", dsi.options.Image)
 			return "", errors.Wrapf(err, "Failed to pull image \"%s\"", dsi.options.Image)
 		}
-
 		defer reader.Close()
+
 		decoder := json.NewDecoder(reader)
 		for {
 			var pullEvent dockerEvent

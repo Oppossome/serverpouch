@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func convertToServerConfig(schema *schema.ServerConfig) (server.ServerInstanceConfig, error) {
+func convertToServer(schema *schema.Server) (server.ServerInstanceConfig, error) {
 	switch {
 	case schema.Type == string(server.ServerInstanceTypeDocker):
 		var dockerOptions docker.DockerServerInstanceOptions
@@ -30,18 +30,18 @@ func convertToServerConfig(schema *schema.ServerConfig) (server.ServerInstanceCo
 	}
 }
 
-func (d *databaseImpl) GetServerConfig(ctx context.Context, id uuid.UUID) (server.ServerInstanceConfig, error) {
-	dbConfig, err := d.queries.GetServerConfig(ctx, id)
+func (d *databaseImpl) GetServer(ctx context.Context, id uuid.UUID) (server.ServerInstanceConfig, error) {
+	dbConfig, err := d.queries.GetServer(ctx, id)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to retrieve server config")
 		return nil, errors.Wrap(err, "failed to retrieve server config")
 	}
 
-	return convertToServerConfig(&dbConfig)
+	return convertToServer(&dbConfig)
 }
 
-func (d *databaseImpl) ListServerConfigs(ctx context.Context) ([]server.ServerInstanceConfig, error) {
-	dbConfigs, err := d.queries.GetServerConfigs(ctx)
+func (d *databaseImpl) ListServers(ctx context.Context) ([]server.ServerInstanceConfig, error) {
+	dbConfigs, err := d.queries.GetServers(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to retrieve server configs")
 		return nil, errors.Wrap(err, "failed to retrieve server configs")
@@ -49,7 +49,7 @@ func (d *databaseImpl) ListServerConfigs(ctx context.Context) ([]server.ServerIn
 
 	configs := make([]server.ServerInstanceConfig, len(dbConfigs))
 	for idx, dbConfig := range dbConfigs {
-		config, err := convertToServerConfig(&dbConfig)
+		config, err := convertToServer(&dbConfig)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to convert server config")
 			return nil, errors.Wrap(err, "failed to convert server config")
@@ -61,14 +61,14 @@ func (d *databaseImpl) ListServerConfigs(ctx context.Context) ([]server.ServerIn
 	return configs, nil
 }
 
-func (d *databaseImpl) UpdateServerConfig(ctx context.Context, id uuid.UUID, config server.ServerInstanceConfig) (server.ServerInstanceConfig, error) {
+func (d *databaseImpl) UpdateServer(ctx context.Context, id uuid.UUID, config server.ServerInstanceConfig) (server.ServerInstanceConfig, error) {
 	configJSON, err := config.ToJSON()
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to convert config to json")
 		return nil, errors.Wrap(err, "failed to convert config to json")
 	}
 
-	dbConfig, err := d.queries.UpdateServerConfig(ctx, schema.UpdateServerConfigParams{
+	dbConfig, err := d.queries.UpdateServer(ctx, schema.UpdateServerParams{
 		ID:     id,
 		Config: []byte(configJSON),
 	})
@@ -77,17 +77,17 @@ func (d *databaseImpl) UpdateServerConfig(ctx context.Context, id uuid.UUID, con
 		return nil, errors.Wrap(err, "failed to update server config")
 	}
 
-	return convertToServerConfig(&dbConfig)
+	return convertToServer(&dbConfig)
 }
 
-func (d *databaseImpl) CreateServerConfig(ctx context.Context, config server.ServerInstanceConfig) (server.ServerInstanceConfig, error) {
+func (d *databaseImpl) CreateServer(ctx context.Context, config server.ServerInstanceConfig) (server.ServerInstanceConfig, error) {
 	configJSON, err := config.ToJSON()
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to convert config to json")
 		return nil, errors.Wrap(err, "failed to convert config to json")
 	}
 
-	dbConfig, err := d.queries.CreateServerConfig(ctx, schema.CreateServerConfigParams{
+	dbConfig, err := d.queries.CreateServer(ctx, schema.CreateServerParams{
 		Type:   string(config.Type()),
 		Config: []byte(configJSON),
 	})
@@ -96,5 +96,5 @@ func (d *databaseImpl) CreateServerConfig(ctx context.Context, config server.Ser
 		return nil, errors.Wrap(err, "failed to create server config")
 	}
 
-	return convertToServerConfig(&dbConfig)
+	return convertToServer(&dbConfig)
 }

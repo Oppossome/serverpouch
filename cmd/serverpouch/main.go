@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"oppossome/serverpouch/internal/delivery/http"
+	httpRepo "oppossome/serverpouch/internal/delivery/http"
 	"oppossome/serverpouch/internal/domain/usecases"
 	"oppossome/serverpouch/internal/infrastructure/database"
 	"oppossome/serverpouch/internal/infrastructure/database/schema"
@@ -15,6 +16,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 // loadEnv loads the environment variables from the .env file, falling back to .env.example if the former is not found
@@ -52,7 +54,7 @@ func main() {
 	}
 
 	// Migrate the database
-	err := schema.Migrate(appCtx, databaseURL)
+	_, err := schema.Migrate(appCtx, databaseURL, migrate.Up)
 	if err != nil {
 		zerolog.Ctx(appCtx).Err(err).Msg("failed to migrate database")
 		return
@@ -76,7 +78,7 @@ func main() {
 
 	appCtx = docker.WithClient(appCtx, dockerClient)
 
-	// Initialize the usc
+	// Initialize the usecases
 	usc, err := usecases.New(appCtx)
 	if err != nil {
 		zerolog.Ctx(appCtx).Err(err).Msg("failed to start usecases")
@@ -86,11 +88,17 @@ func main() {
 
 	appCtx = usecases.WithUsecases(appCtx, usc)
 
-	// Initialize our HTTP handler
-	httpServer, err := http.New(appCtx, httpURL)
+	// Initialize our HTTP router
+	router, err := httpRepo.New(appCtx)
 	if err != nil {
-		zerolog.Ctx(appCtx).Err(err).Msg("failed to initialize server")
+		zerolog.Ctx(appCtx).Err(err).Msg("Failed to initialize our router")
 		return
+	}
+
+	// Initialize our HTTP server
+	httpServer := &http.Server{
+		Handler: router,
+		Addr:    httpURL,
 	}
 
 	go httpServer.ListenAndServe()
