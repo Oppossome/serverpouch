@@ -7,8 +7,8 @@ SELECT * FROM server_configs
 ORDER BY created_at DESC;
 
 -- name: CreateServerConfig :one
-INSERT INTO server_configs (id, type, config) 
-VALUES ($1, $2, $3)
+INSERT INTO server_configs (type, config) 
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: UpdateServerConfig :one

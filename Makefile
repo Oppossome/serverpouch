@@ -1,11 +1,11 @@
 dev:
 	go run ./cmd/serverpouch
 
-test:
-	go test ./... -timeout 30s
+fmt:
+	gofumpt -l -w .
 
 generate:
 	go generate ./tools/tools.go
 
-fmt:
-	gofumpt -l -w .
+test:
+	go test ./... -timeout 30s

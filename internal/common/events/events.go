@@ -32,12 +32,12 @@ func (e *eventEmitterImpl[O]) Off(listener <-chan O) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	for i, channel := range e.listeners {
+	for idx, channel := range e.listeners {
 		if channel != listener {
 			continue
 		}
 
-		e.listeners = append(e.listeners[:i], e.listeners[i+1:]...)
+		e.listeners = append(e.listeners[:idx], e.listeners[idx+1:]...)
 		close(channel)
 		return
 	}

@@ -1,0 +1,181 @@
+openapi: 3.0.0
+info:
+  title: "Serverpouch API"
+  description: "This is the API documentation for the Serverpouch API. It's used to generate the API client used by the Serverpouch CLI."
+  version: "0.0.0"
+
+paths:
+  /server:
+    post:
+      operationId: "CreateServer"
+      summary: "Create a new server"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewServer"
+      responses:
+        '201':
+          description: "The server was created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerResponse"
+
+        '400':
+          description: "The request was invalid"
+        
+        '500':
+          description: "An internal server error occurred"
+  
+  /server/{id}:
+    get:
+      operationId: "GetServer"
+      summary: "Get a server by ID"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+      responses:
+        '200':
+          description: "The server was found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerResponse"
+                    
+        '404':
+          description: "The server was not found"
+        
+        '500':
+          description: "An internal server error occurred"
+
+  /servers:
+    get:
+      operationId: "ListServers"
+      summary: "List all servers"
+      responses:
+        '200':
+          description: "The servers were found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServersResponse"
+                      
+
+        '500':
+          description: "An internal server error occurred"
+
+components:
+  schemas:
+    BaseResource:
+      type: "object"
+      required:
+        - id
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+          description: "The unique identifier for the resource"
+        # createdAt:
+        #   type: "string"
+        #   format: "date-time"
+        #   description: "The date and time the resource was created"
+        # updatedAt:
+        #   type: "string"
+        #   format: "date-time"
+        #   description: "The date and time the resource was last updated"
+
+    ServerConfigDocker:
+      type: "object"
+      required:
+        - type
+        - image
+        - volumes
+        - ports
+        - environment
+      properties:
+        type:
+          type: "string"
+          enum: ["docker"]
+        image:
+          type: "string"
+          description: "The Docker image to use for the server"
+        volumes:
+          type: "array"
+          description: "The volumes to mount on the server"
+          example:
+            - "/var/www/html:/var/www/html"
+            - "/etc/nginx/nginx.conf:/etc/nginx/nginx.conf"
+          items:
+            type: "string"
+        ports:
+          type: "array"
+          description: "The ports to expose on the server"
+          example:
+            - "80:8080/tcp"
+            - "443:8443/tcp"
+          items:
+            type: "string"
+        environment:
+          type: "array"
+          description: "The environment variables to set on the server"
+          example:
+            - "PORT=8080"
+            - "NODE_ENV=production"
+          items:
+            type: "string"
+
+    ServerConfig:
+      oneOf:
+        - $ref: "#/components/schemas/ServerConfigDocker"
+
+    NewServer:
+      type: "object"
+      required:
+        - config
+      properties:
+        config:
+          $ref: "#/components/schemas/ServerConfig"
+
+    Server:
+      type: "object"
+      allOf:
+        - $ref: "#/components/schemas/NewServer"
+        - $ref: "#/components/schemas/BaseResource"
+        - type: object
+          required:
+            - status
+          properties:
+            status:
+              type: "string"
+              enum:
+                - "initializing"
+                - "idle"
+                - "starting"
+                - "running"
+                - "stopping"
+                - "errored"
+       
+    ServerResponse:
+      type: "object"
+      required:
+       - server
+      properties:
+        server:
+          $ref: "#/components/schemas/Server"
+
+    ServersResponse:
+      type: "object"
+      required:
+        - servers
+      properties:
+        servers:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Server"
+         
